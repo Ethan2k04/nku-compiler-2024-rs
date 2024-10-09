@@ -478,6 +478,38 @@ impl Inst {
         inst
     }
 
+    /// Create a new `Eq` instruction.
+    pub fn Eq(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: (IntCmpCond::Eq),
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `Ne` instruction.
+    pub fn Ne(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: (IntCmpCond::Ne),
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
     /// Create a new `ret` instruction.
     pub fn ret(ctx: &mut Context, val: Option<Value>) -> Self {
         let void = Ty::void(ctx);

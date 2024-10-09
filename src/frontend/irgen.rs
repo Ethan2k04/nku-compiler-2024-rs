@@ -138,7 +138,9 @@ impl IrGenContext {
                 | Bo::Lt
                 | Bo::Gt
                 | Bo::Le
-                | Bo::Ge => {
+                | Bo::Ge
+                | Bo::Eq
+                | Bo::Ne => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -156,6 +158,8 @@ impl IrGenContext {
                         Bo::Gt => Inst::Gt(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Le => Inst::Le(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Ge => Inst::Ge(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Eq => Inst::Eq(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Ne => Inst::Ne(&mut self.ctx, lhs, rhs, lhs_ty),
                     };
 
                     // Push the instruction to the current block

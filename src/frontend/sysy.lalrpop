@@ -175,8 +175,8 @@ pub RelExp: Expr = {
 pub EqExp: Expr = {
   RelExp => <>,
   // TODO: Support equality operators
-  // <lhs: EqExp> "==" <rhs: RelExp> => Expr::binary(BinaryOp::Eq, lhs, rhs),
-  // <lhs: EqExp> "!=" <rhs: RelExp> => Expr::binary(BinaryOp::Ne, lhs, rhs),
+  <lhs: EqExp> "==" <rhs: RelExp> => Expr::binary(BinaryOp::Eq, lhs, rhs),
+  <lhs: EqExp> "!=" <rhs: RelExp> => Expr::binary(BinaryOp::Ne, lhs, rhs),
 }
 
 // LAndExp -> EqExp | LAndExp '&&' EqExp
@@ -193,8 +193,8 @@ LOrExp: Expr = {
   // <lhs: LOrExp> "||" <rhs: LAndExp> => Expr::binary(BinaryOp::LogicalOr, lhs, rhs),
 }
 
-// Exp -> RelExp
-pub Exp: Expr = RelExp => <>;
+// Exp -> LOrExp
+pub Exp: Expr = LOrExp => <>;
 
 // ConstExp -> AddExp
 pub ConstExp: Expr = AddExp => <>;

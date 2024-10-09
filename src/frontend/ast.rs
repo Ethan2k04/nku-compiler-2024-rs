@@ -229,6 +229,8 @@ pub enum BinaryOp {
     Gt,
     Le,
     Ge,
+    Eq,
+    Ne,
 }
 
 /// Unary operators.
@@ -832,6 +834,8 @@ impl Expr {
                     Bo::Gt => Some(ComptimeVal::bool(lhs > rhs)),
                     Bo::Le => Some(ComptimeVal::bool(lhs <= rhs)),
                     Bo::Ge => Some(ComptimeVal::bool(lhs >= rhs)),
+                    Bo::Eq => Some(ComptimeVal::bool(lhs == rhs)),
+                    Bo::Ne => Some(ComptimeVal::bool(lhs != rhs)),
                 }
             }
             ExprKind::Unary(op, expr) => {
@@ -922,7 +926,9 @@ impl Expr {
                     | BinaryOp::Lt
                     | BinaryOp::Gt
                     | BinaryOp::Le
-                    | BinaryOp::Ge => {
+                    | BinaryOp::Ge
+                    | BinaryOp::Eq
+                    | BinaryOp::Ne => {
                         expr.ty = Some(lhs_ty.clone());
                     } // TODO: support other binary operations
                 }
