@@ -89,7 +89,9 @@ pub struct IrGenContext {
 
 impl IrGenContext {
     /// Consume the context and return the generated IR.
-    pub fn finish(self) -> Context { self.ctx }
+    pub fn finish(self) -> Context {
+        self.ctx
+    }
 
     // Generate a new global constant value in ir given a comptime value in AST.
     fn gen_global_comptime(&mut self, val: &Cv) -> ConstantValue {
@@ -128,7 +130,19 @@ impl IrGenContext {
             ExprKind::Const(v) => Some(self.gen_local_comptime(v)),
             // Binary operations -> generate the operation
             ExprKind::Binary(op, lhs, rhs) => match op {
-                Bo::Add | Bo::Sub | Bo::Mul | Bo::Div => {
+                Bo::Add
+                | Bo::Sub
+                | Bo::Mul
+                | Bo::Div
+                | Bo::Mod
+                | Bo::Lt
+                | Bo::Gt
+                | Bo::Le
+                | Bo::Ge
+                | Bo::Eq
+                | Bo::Ne
+                | Bo::LogicalAnd
+                | Bo::LogicalOr => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -138,15 +152,18 @@ impl IrGenContext {
                         // Generate add instruction
                         Bo::Add => Inst::add(&mut self.ctx, lhs, rhs, lhs_ty),
                         // TODO: Implement other binary operations
-                        Bo::Sub => {
-                            todo!("implement sub");
-                        }
-                        Bo::Mul => {
-                            todo!("implement mul");
-                        }
-                        Bo::Div => {
-                            todo!("implement div");
-                        }
+                        Bo::Sub => Inst::sub(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Mul => Inst::mul(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Div => Inst::SDiv(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Mod => Inst::SRem(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Lt => Inst::Lt(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Gt => Inst::Gt(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Le => Inst::Le(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Ge => Inst::Ge(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Eq => Inst::Eq(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Ne => Inst::Ne(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::LogicalAnd => Inst::LogicalAnd(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::LogicalOr => Inst::LogicalOr(&mut self.ctx, lhs, rhs, lhs_ty),
                     };
 
                     // Push the instruction to the current block

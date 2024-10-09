@@ -21,9 +21,13 @@ impl ComptimeVal {
         }
     }
 
-    pub fn bool(b: bool) -> Self { Self::Bool(b) }
+    pub fn bool(b: bool) -> Self {
+        Self::Bool(b)
+    }
 
-    pub fn int(i: i32) -> Self { Self::Int(i) }
+    pub fn int(i: i32) -> Self {
+        Self::Int(i)
+    }
 
     /// Get the type of the comptime value.
     pub fn get_type(&self) -> Type {
@@ -220,6 +224,15 @@ pub enum BinaryOp {
     Sub,
     Mul,
     Div,
+    Mod,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    Eq,
+    Ne,
+    LogicalAnd,
+    LogicalOr,
 }
 
 /// Unary operators.
@@ -273,7 +286,9 @@ pub struct Expr {
 }
 
 impl PartialEq for Expr {
-    fn eq(&self, other: &Self) -> bool { self.kind == other.kind }
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
 }
 
 impl Eq for Expr {}
@@ -523,10 +538,14 @@ pub struct SymbolTable {
 
 impl SymbolTable {
     /// Enter a new scope.
-    pub fn enter_scope(&mut self) { self.stack.push(HashMap::default()); }
+    pub fn enter_scope(&mut self) {
+        self.stack.push(HashMap::default());
+    }
 
     /// Leave the current scope.
-    pub fn leave_scope(&mut self) { self.stack.pop(); }
+    pub fn leave_scope(&mut self) {
+        self.stack.pop();
+    }
 
     /// Insert a symbol into the current scope.
     pub fn insert(&mut self, name: impl Into<String>, entry: SymbolEntry) {
@@ -793,7 +812,9 @@ impl Stmt {
 
 impl Expr {
     /// Get the type of the expression.
-    pub fn ty(&self) -> &Type { self.ty.as_ref().unwrap() }
+    pub fn ty(&self) -> &Type {
+        self.ty.as_ref().unwrap()
+    }
 
     /// Try to fold the expression into a constant value.
     pub fn try_fold(&self, symtable: &SymbolTable) -> Option<ComptimeVal> {
@@ -810,6 +831,15 @@ impl Expr {
                     Bo::Sub => Some(lhs - rhs),
                     Bo::Mul => Some(lhs * rhs),
                     Bo::Div => Some(lhs / rhs),
+                    Bo::Mod => Some(lhs % rhs),
+                    Bo::Lt => Some(ComptimeVal::bool(lhs < rhs)),
+                    Bo::Gt => Some(ComptimeVal::bool(lhs > rhs)),
+                    Bo::Le => Some(ComptimeVal::bool(lhs <= rhs)),
+                    Bo::Ge => Some(ComptimeVal::bool(lhs >= rhs)),
+                    Bo::Eq => Some(ComptimeVal::bool(lhs == rhs)),
+                    Bo::Ne => Some(ComptimeVal::bool(lhs != rhs)),
+                    Bo::LogicalAnd => Some(lhs.logical_and(&rhs)),
+                    Bo::LogicalOr => Some(lhs.logical_or(&rhs)),
                 }
             }
             ExprKind::Unary(op, expr) => {
@@ -892,7 +922,19 @@ impl Expr {
                 // Create the binary expression
                 let mut expr = Expr::binary(op, lhs, rhs);
                 match op {
-                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
+                    BinaryOp::Add
+                    | BinaryOp::Sub
+                    | BinaryOp::Mul
+                    | BinaryOp::Div
+                    | BinaryOp::Mod
+                    | BinaryOp::Lt
+                    | BinaryOp::Gt
+                    | BinaryOp::Le
+                    | BinaryOp::Ge
+                    | BinaryOp::Eq
+                    | BinaryOp::Ne
+                    | BinaryOp::LogicalAnd
+                    | BinaryOp::LogicalOr => {
                         expr.ty = Some(lhs_ty.clone());
                     } // TODO: support other binary operations
                 }

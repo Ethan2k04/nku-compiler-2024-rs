@@ -1,6 +1,6 @@
 # NKU Compiler 2024 (Rust)
 
-## ！本仓库为学生Fork的分支
+> **! 本仓库为学生Fork的分支**
 
 本框架由 2024 年编译系统实现赛 RISC-V 赛道作品改编而来，原代码仓库为：
 
@@ -16,13 +16,16 @@
 
 ## Implementation
 
-- 词法分析⭕
-- 语法分析⭕
-- 中间代码生成⭕
-- 代码优化⭕
-- 代码生成⭕
-
+- 词法/语法分析
+  - 使用lalrpop构造lexer和parser
+  - 新增支持的tokens：
+      - 乘法（*）e.g. "2 * 4;"
+      - 除法（/）e.g. "6 / 3;"
+      - 取模（%）e.g. "8 % 3;"
+      - 比较运算（<, >, <=, >=）e.g. "return a > b;"
 
 ## About Us
+
+我们是热爱Compiler的Rustaceans✨
 
 ![nku_compiler_logo](https://github.com/user-attachments/assets/93b70721-6225-41f5-96a4-3b04f8a43712)

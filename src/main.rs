@@ -1,4 +1,4 @@
-use nkucc::frontend::{NumberParser};
+use nkucc::frontend::NumberParser;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Hello, NKUCC!");
