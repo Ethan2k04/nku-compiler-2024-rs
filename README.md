@@ -16,8 +16,11 @@
 
 ## Implementation
 
-- 词法分析⭕
-- 语法分析⭕
+- 词法/语法分析⭕
+  - 使用lalrpop构造tokenizer和parser
+  - 新增的tokens：
+      - 取模（%）
+      - #TODO
 - 中间代码生成⭕
 - 代码优化⭕
 - 代码生成⭕
