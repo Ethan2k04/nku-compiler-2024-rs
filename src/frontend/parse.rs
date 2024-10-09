@@ -9,3 +9,4 @@ lalrpop_mod!(#[allow(clippy::all)] pub parser, "/frontend/sysy.rs");
 
 // Make top-level parser public.
 pub use parser::SysYParser;
+pub use parser::NumberParser;
