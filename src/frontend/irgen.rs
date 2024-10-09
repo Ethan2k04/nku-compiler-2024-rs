@@ -148,15 +148,9 @@ impl IrGenContext {
                         // Generate add instruction
                         Bo::Add => Inst::add(&mut self.ctx, lhs, rhs, lhs_ty),
                         // TODO: Implement other binary operations
-                        Bo::Sub => {
-                            todo!("implement sub");
-                        }
-                        Bo::Mul => {
-                            todo!("implement mul");
-                        }
-                        Bo::Div => {
-                            todo!("implement div");
-                        }
+                        Bo::Sub => Inst::sub(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Mul => Inst::mul(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Div => Inst::SDiv(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Mod => Inst::SRem(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Lt => Inst::Lt(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Gt => Inst::Gt(&mut self.ctx, lhs, rhs, lhs_ty),
