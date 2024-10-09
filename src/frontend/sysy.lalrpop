@@ -183,14 +183,14 @@ pub EqExp: Expr = {
 LAndExp: Expr = {
   EqExp => <>,
   // TODO: Support logical and operator
-  // <lhs: LAndExp> "&&" <rhs: EqExp> => Expr::binary(BinaryOp::LogicalAnd, lhs, rhs),
+  <lhs: LAndExp> "&&" <rhs: EqExp> => Expr::binary(BinaryOp::LogicalAnd, lhs, rhs),
 }
 
 // LOrExp -> LAndExp | LOrExp '||' LAndExp
 LOrExp: Expr = {
   LAndExp => <>,
   // // TODO: Support logical or operator
-  // <lhs: LOrExp> "||" <rhs: LAndExp> => Expr::binary(BinaryOp::LogicalOr, lhs, rhs),
+  <lhs: LOrExp> "||" <rhs: LAndExp> => Expr::binary(BinaryOp::LogicalOr, lhs, rhs),
 }
 
 // Exp -> LOrExp

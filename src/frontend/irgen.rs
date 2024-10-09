@@ -140,7 +140,9 @@ impl IrGenContext {
                 | Bo::Le
                 | Bo::Ge
                 | Bo::Eq
-                | Bo::Ne => {
+                | Bo::Ne
+                | Bo::LogicalAnd
+                | Bo::LogicalOr => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -160,6 +162,8 @@ impl IrGenContext {
                         Bo::Ge => Inst::Ge(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Eq => Inst::Eq(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Ne => Inst::Ne(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::LogicalAnd => Inst::LogicalAnd(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::LogicalOr => Inst::LogicalOr(&mut self.ctx, lhs, rhs, lhs_ty),
                     };
 
                     // Push the instruction to the current block

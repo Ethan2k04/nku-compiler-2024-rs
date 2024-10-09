@@ -231,6 +231,8 @@ pub enum BinaryOp {
     Ge,
     Eq,
     Ne,
+    LogicalAnd,
+    LogicalOr,
 }
 
 /// Unary operators.
@@ -836,6 +838,8 @@ impl Expr {
                     Bo::Ge => Some(ComptimeVal::bool(lhs >= rhs)),
                     Bo::Eq => Some(ComptimeVal::bool(lhs == rhs)),
                     Bo::Ne => Some(ComptimeVal::bool(lhs != rhs)),
+                    Bo::LogicalAnd => Some(lhs.logical_and(&rhs)),
+                    Bo::LogicalOr => Some(lhs.logical_or(&rhs)),
                 }
             }
             ExprKind::Unary(op, expr) => {
@@ -928,7 +932,9 @@ impl Expr {
                     | BinaryOp::Le
                     | BinaryOp::Ge
                     | BinaryOp::Eq
-                    | BinaryOp::Ne => {
+                    | BinaryOp::Ne
+                    | BinaryOp::LogicalAnd
+                    | BinaryOp::LogicalOr => {
                         expr.ty = Some(lhs_ty.clone());
                     } // TODO: support other binary operations
                 }

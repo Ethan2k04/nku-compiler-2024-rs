@@ -510,6 +510,34 @@ impl Inst {
         inst
     }
 
+    /// Create a new `LogicalAnd` instruction.
+    pub fn LogicalAnd(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::And,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `LogicalOr` instruction.
+    pub fn LogicalOr(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::Or,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
     /// Create a new `ret` instruction.
     pub fn ret(ctx: &mut Context, val: Option<Value>) -> Self {
         let void = Ty::void(ctx);
