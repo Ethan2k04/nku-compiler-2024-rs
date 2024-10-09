@@ -10,9 +10,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     ast.type_check();
 
+    println!("================================================================\nAST:");
+
     println!("{:#?}", ast);
 
     let ir = irgen(&ast, 8);
+
+    println!("================================================================\nIR:");
 
     println!("{}", ir);
 

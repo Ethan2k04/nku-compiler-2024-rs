@@ -89,7 +89,9 @@ pub struct IrGenContext {
 
 impl IrGenContext {
     /// Consume the context and return the generated IR.
-    pub fn finish(self) -> Context { self.ctx }
+    pub fn finish(self) -> Context {
+        self.ctx
+    }
 
     // Generate a new global constant value in ir given a comptime value in AST.
     fn gen_global_comptime(&mut self, val: &Cv) -> ConstantValue {
@@ -128,7 +130,7 @@ impl IrGenContext {
             ExprKind::Const(v) => Some(self.gen_local_comptime(v)),
             // Binary operations -> generate the operation
             ExprKind::Binary(op, lhs, rhs) => match op {
-                Bo::Add | Bo::Sub | Bo::Mul | Bo::Div => {
+                Bo::Add | Bo::Sub | Bo::Mul | Bo::Div | Bo::Mod => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -147,6 +149,7 @@ impl IrGenContext {
                         Bo::Div => {
                             todo!("implement div");
                         }
+                        Bo::Mod => Inst::SRem(&mut self.ctx, lhs, rhs, lhs_ty),
                     };
 
                     // Push the instruction to the current block
