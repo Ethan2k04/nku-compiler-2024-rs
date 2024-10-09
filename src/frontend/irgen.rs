@@ -130,7 +130,15 @@ impl IrGenContext {
             ExprKind::Const(v) => Some(self.gen_local_comptime(v)),
             // Binary operations -> generate the operation
             ExprKind::Binary(op, lhs, rhs) => match op {
-                Bo::Add | Bo::Sub | Bo::Mul | Bo::Div | Bo::Mod => {
+                Bo::Add
+                | Bo::Sub
+                | Bo::Mul
+                | Bo::Div
+                | Bo::Mod
+                | Bo::Lt
+                | Bo::Gt
+                | Bo::Le
+                | Bo::Ge => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -150,6 +158,10 @@ impl IrGenContext {
                             todo!("implement div");
                         }
                         Bo::Mod => Inst::SRem(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Lt => Inst::Lt(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Gt => Inst::Gt(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Le => Inst::Le(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Ge => Inst::Ge(&mut self.ctx, lhs, rhs, lhs_ty),
                     };
 
                     // Push the instruction to the current block

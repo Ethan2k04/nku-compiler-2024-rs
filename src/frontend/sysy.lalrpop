@@ -165,10 +165,10 @@ pub AddExp: Expr = {
 pub RelExp: Expr = {
   AddExp => <>,
   // TODO: Suppoert relational operators
-  // <lhs: RelExp> "<" <rhs: AddExp> => Expr::binary(BinaryOp::Lt, lhs, rhs),
-  // <lhs: RelExp> ">" <rhs: AddExp> => Expr::binary(BinaryOp::Gt, lhs, rhs),
-  // <lhs: RelExp> "<=" <rhs: AddExp> => Expr::binary(BinaryOp::Le, lhs, rhs),
-  // <lhs: RelExp> ">=" <rhs: AddExp> => Expr::binary(BinaryOp::Ge, lhs, rhs),
+  <lhs: RelExp> "<" <rhs: AddExp> => Expr::binary(BinaryOp::Lt, lhs, rhs),
+  <lhs: RelExp> ">" <rhs: AddExp> => Expr::binary(BinaryOp::Gt, lhs, rhs),
+  <lhs: RelExp> "<=" <rhs: AddExp> => Expr::binary(BinaryOp::Le, lhs, rhs),
+  <lhs: RelExp> ">=" <rhs: AddExp> => Expr::binary(BinaryOp::Ge, lhs, rhs),
 }
 
 // EqExp -> RelExp | EqExp ('==' | '!=') RelExp
@@ -193,8 +193,8 @@ LOrExp: Expr = {
   // <lhs: LOrExp> "||" <rhs: LAndExp> => Expr::binary(BinaryOp::LogicalOr, lhs, rhs),
 }
 
-// Exp -> AddExp
-pub Exp: Expr = AddExp => <>;
+// Exp -> RelExp
+pub Exp: Expr = RelExp => <>;
 
 // ConstExp -> AddExp
 pub ConstExp: Expr = AddExp => <>;

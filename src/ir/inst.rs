@@ -370,6 +370,72 @@ impl Inst {
         inst
     }
 
+    /// Create a new `Lt` instruction.
+    pub fn Lt(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: (IntCmpCond::Slt),
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `Gt` instruction.
+    pub fn Gt(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: (IntCmpCond::Slt),
+                },
+            },
+            ty,
+        );
+        // Reverse lhs and rhs because we use slt not sgt
+        inst.add_operand(ctx, rhs);
+        inst.add_operand(ctx, lhs);
+        inst
+    }
+
+    /// Create a new `Lt` instruction.
+    pub fn Le(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: (IntCmpCond::Sle),
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `Ge` instruction.
+    pub fn Ge(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: (IntCmpCond::Sle),
+                },
+            },
+            ty,
+        );
+        // Reverse lhs and rhs because we use sle not sge
+        inst.add_operand(ctx, rhs);
+        inst.add_operand(ctx, lhs);
+        inst
+    }
+
     /// Create a new `ret` instruction.
     pub fn ret(ctx: &mut Context, val: Option<Value>) -> Self {
         let void = Ty::void(ctx);

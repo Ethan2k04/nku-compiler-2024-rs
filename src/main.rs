@@ -10,13 +10,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     ast.type_check();
 
-    println!("================================================================\nAST:");
+    println!(
+        "{} {} {}",
+        "=".repeat(12),
+        "Abstract Syntax Tree",
+        "=".repeat(12)
+    );
 
     println!("{:#?}", ast);
 
     let ir = irgen(&ast, 8);
 
-    println!("================================================================\nIR:");
+    println!(
+        "\n{} {} {}",
+        "=".repeat(12),
+        "Intermediate Representation",
+        "=".repeat(12)
+    );
 
     println!("{}", ir);
 

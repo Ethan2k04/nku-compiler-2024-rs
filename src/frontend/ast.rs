@@ -225,6 +225,10 @@ pub enum BinaryOp {
     Mul,
     Div,
     Mod,
+    Lt,
+    Gt,
+    Le,
+    Ge,
 }
 
 /// Unary operators.
@@ -824,6 +828,10 @@ impl Expr {
                     Bo::Mul => Some(lhs * rhs),
                     Bo::Div => Some(lhs / rhs),
                     Bo::Mod => Some(lhs % rhs),
+                    Bo::Lt => Some(ComptimeVal::bool(lhs < rhs)),
+                    Bo::Gt => Some(ComptimeVal::bool(lhs > rhs)),
+                    Bo::Le => Some(ComptimeVal::bool(lhs <= rhs)),
+                    Bo::Ge => Some(ComptimeVal::bool(lhs >= rhs)),
                 }
             }
             ExprKind::Unary(op, expr) => {
@@ -910,7 +918,11 @@ impl Expr {
                     | BinaryOp::Sub
                     | BinaryOp::Mul
                     | BinaryOp::Div
-                    | BinaryOp::Mod => {
+                    | BinaryOp::Mod
+                    | BinaryOp::Lt
+                    | BinaryOp::Gt
+                    | BinaryOp::Le
+                    | BinaryOp::Ge => {
                         expr.ty = Some(lhs_ty.clone());
                     } // TODO: support other binary operations
                 }
