@@ -3,6 +3,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+// use std::fmt::write;
 use std::rc::Rc;
 use std::{fmt, hash};
 
@@ -16,6 +17,8 @@ pub enum TypeKind {
     Bool,
     /// The integer type.
     Int,
+    /// The float type
+    Float,
     /// The function type, with params and return type.
     Func(Vec<Type>, Type),
 }
@@ -44,6 +47,7 @@ impl fmt::Display for Type {
             TypeKind::Void => write!(f, "void"),
             TypeKind::Bool => write!(f, "bool"),
             TypeKind::Int => write!(f, "int"),
+            TypeKind::Float => write!(f, "float"),
             TypeKind::Func(params, ret) => write!(
                 f,
                 "{}({})",
@@ -95,6 +99,9 @@ impl Type {
     /// Create a new integer type.
     pub fn int() -> Self { Self::make(TypeKind::Int) }
 
+    /// Create a new float type.
+    pub fn float() -> Self { Self::make(TypeKind::Float) }
+
     /// Create a new function type.
     pub fn func(params: Vec<Type>, ret: Type) -> Self { Self::make(TypeKind::Func(params, ret)) }
 
@@ -106,6 +113,9 @@ impl Type {
 
     /// Check if the type is a void type.
     pub fn is_void(&self) -> bool { matches!(self.kind(), TypeKind::Void) }
+
+    /// Check if the type is a void type.
+    pub fn is_float(&self) -> bool { matches!(self.kind(), TypeKind::Float) }
 
     /// Get the parameters and return type of a function type.
     ///
@@ -126,6 +136,7 @@ impl Type {
             TypeKind::Void => 0,
             TypeKind::Bool => 1,
             TypeKind::Int => 4,
+            TypeKind::Float => 4,
             TypeKind::Func(_, _) => unreachable!(),
         }
     }
@@ -140,5 +151,6 @@ mod tests {
         assert_eq!(Type::void().to_string(), "void");
         assert_eq!(Type::bool().to_string(), "bool");
         assert_eq!(Type::int().to_string(), "int");
+        assert_eq!(Type::float().to_string(), "float");
     }
 }

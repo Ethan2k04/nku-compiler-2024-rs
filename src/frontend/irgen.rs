@@ -98,6 +98,7 @@ impl IrGenContext {
         match val {
             Cv::Bool(a) => ConstantValue::i1(&mut self.ctx, *a),
             Cv::Int(a) => ConstantValue::i32(&mut self.ctx, *a),
+            Cv::Float(a) => ConstantValue::f32(&mut self.ctx, *a),
         }
     }
 
@@ -107,6 +108,7 @@ impl IrGenContext {
             Tk::Void => Ty::void(&mut self.ctx),
             Tk::Bool => Ty::i1(&mut self.ctx),
             Tk::Int => Ty::i32(&mut self.ctx),
+            Tk::Float => Ty::f32(&mut self.ctx),
             Tk::Func(..) => unreachable!("function type should be handled separately"),
         }
     }
@@ -116,6 +118,7 @@ impl IrGenContext {
         match val {
             Cv::Bool(a) => Value::i1(&mut self.ctx, *a),
             Cv::Int(a) => Value::i32(&mut self.ctx, *a),
+            Cv::Float(a) => Value::f32(&mut self.ctx, *a),
         }
     }
 

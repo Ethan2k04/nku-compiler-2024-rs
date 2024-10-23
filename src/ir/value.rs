@@ -19,6 +19,8 @@ pub enum ConstantValue {
     Int8 { ty: Ty, value: i8 },
     /// A 32-bit integer constant.
     Int32 { ty: Ty, value: i32 },
+    /// A 32-bit float constant.
+    Float32 { ty: Ty, value: f32},
     /// An array constant.
     Array { ty: Ty, elems: Vec<ConstantValue> },
     /// Global variables/functions are treated as constants, because their
@@ -41,6 +43,7 @@ impl ConstantValue {
             ConstantValue::Int1 { ty, .. } => *ty,
             ConstantValue::Int8 { ty, .. } => *ty,
             ConstantValue::Int32 { ty, .. } => *ty,
+            ConstantValue::Float32 { ty, .. } => *ty,
             ConstantValue::Array { ty, .. } => *ty,
             ConstantValue::GlobalRef { ty, .. } => *ty,
         }
@@ -61,6 +64,11 @@ impl ConstantValue {
         ConstantValue::Int32 { ty: i32, value }
     }
 
+    pub fn f32(ctx: &mut Context, value: f32) -> ConstantValue {
+        let f32 = Ty::f32(ctx);
+        ConstantValue::Float32 { ty: f32, value }
+    }
+
     pub fn global_ref(ctx: &mut Context, name: String, value_ty: Ty) -> ConstantValue {
         let ty = Ty::ptr(ctx);
         ConstantValue::GlobalRef { ty, name, value_ty }
@@ -79,6 +87,7 @@ impl ConstantValue {
             ConstantValue::Int1 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int8 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int32 { value, .. } => s.push_str(&value.to_string()),
+            ConstantValue::Float32 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Array { elems, .. } => {
                 s.push('[');
                 for (i, elem) in elems.iter().enumerate() {
@@ -195,6 +204,11 @@ impl Value {
 
     pub fn i32(ctx: &mut Context, value: i32) -> Self {
         let value = ConstantValue::i32(ctx, value);
+        Self::new(ctx, ValueKind::Constant { value })
+    }
+
+    pub fn f32(ctx: &mut Context, value: f32) -> Self {
+        let value = ConstantValue::f32(ctx, value);
         Self::new(ctx, ValueKind::Constant { value })
     }
 

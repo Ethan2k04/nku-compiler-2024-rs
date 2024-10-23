@@ -1,6 +1,7 @@
 use crate::frontend::{
     ast::*,
     types::*,
+    parse::parse_hexadecimal_float,
 };
 
 grammar;
@@ -30,11 +31,12 @@ pub Decl: Decl = {
     <v: VarDecl> => Decl::VarDecl(v),
 }
 
-// BType -> 'int' | 'void' 
+// BType -> 'int' | 'void' | 'float'
 // void is actually FuncType, but merge them all to avoid conflicts
 pub BType: Type = {
     "int" => Type::int(),
     "void" => Type::void(),
+    "float" => Type::float(),
 }
 
 // ConstDecl -> 'const' BType ConstDef { ',' ConstDef } ';'
@@ -114,10 +116,18 @@ Int: i32 = {
   r"0[xX][0-9a-fA-F]+" => i32::from_str_radix(&<>[2..], 16).unwrap(),
 }
 
+Float: f32 = {
+  r"((([0-9]*[.][0-9]*([eE][+-]?[0-9]+)?)|([0-9]+[eE][+-]?[0-9]+))[fLlL]?)" => <>.parse::<f32>().unwrap(),
+  r"(0[xX](([0-9A-Fa-f]*[.][0-9A-Fa-f]*([pP][+-]?[0-9]+)?)|([0-9A-Fa-f]+[pP][+-]?[0-9]+))[fLlL]?)" => {
+    parse_hexadecimal_float(<>)
+  }
+}
+
 
 // Number -> IntConst | floatConst
 pub Number: ComptimeVal = {
   <n: Int> => ComptimeVal::int(n),
+  <n: Float> => ComptimeVal::float(n),  
 }
 
 // LVal -> Ident

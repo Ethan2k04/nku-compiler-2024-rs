@@ -10,6 +10,7 @@ use super::types::{Type, TypeKind as Tk};
 pub enum ComptimeVal {
     Bool(bool),
     Int(i32),
+    Float(f32),
 }
 
 impl ComptimeVal {
@@ -18,6 +19,15 @@ impl ComptimeVal {
         match self {
             Self::Bool(b) => *b as i32,
             Self::Int(i) => *i,
+            Self::Float(f) => *f as i32,
+        }
+    }
+
+    pub fn unwarp_float(&self) -> f32 {
+        match self {
+            Self::Bool(b) => *b as i32 as f32,
+            Self::Int(i) => *i as f32,
+            Self::Float(f) => *f,
         }
     }
 
@@ -29,11 +39,16 @@ impl ComptimeVal {
         Self::Int(i)
     }
 
+    pub fn float(f: f32) -> Self {
+        Self::Float(f)
+    }
+
     /// Get the type of the comptime value.
     pub fn get_type(&self) -> Type {
         match self {
             Self::Bool(_) => Type::bool(),
             Self::Int(_) => Type::int(),
+            Self::Float(_) => Type::float(),
         }
     }
 
@@ -42,6 +57,7 @@ impl ComptimeVal {
         match self {
             Self::Bool(b) => !*b,
             Self::Int(i) => *i == 0,
+            Self::Float(f) => *f == 0.0,
         }
     }
 
@@ -50,11 +66,13 @@ impl ComptimeVal {
         let lhs = match self {
             Self::Bool(a) => *a,
             Self::Int(a) => *a != 0,
+            Self::Float(a) => *a != 0.0,
         };
 
         let rhs = match other {
             Self::Bool(b) => *b,
             Self::Int(b) => *b != 0,
+            Self::Float(b) => *b != 0.0,
         };
 
         Self::Bool(lhs || rhs)
@@ -65,11 +83,13 @@ impl ComptimeVal {
         let lhs = match self {
             Self::Bool(a) => *a,
             Self::Int(a) => *a != 0,
+            Self::Float(a) => *a != 0.0,
         };
 
         let rhs = match other {
             Self::Bool(b) => *b,
             Self::Int(b) => *b != 0,
+            Self::Float(b) => *b != 0.0,
         };
 
         Self::Bool(lhs && rhs)
@@ -88,10 +108,19 @@ impl PartialEq for ComptimeVal {
         match (self, other) {
             (Cv::Bool(a), Cv::Bool(b)) => a == b,
             (Cv::Int(a), Cv::Int(b)) => a == b,
+            (Cv::Float(a), Cv::Float(b)) => (*a - *b).abs() < f32::EPSILON, 
 
             // Coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => (*a as i32) == *b,
             (Cv::Int(a), Cv::Bool(b)) => *a == (*b as i32),
+
+            // Coercion situations, bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => (*a as i32 as f32 - *b).abs() < f32::EPSILON,
+            (Cv::Float(a), Cv::Bool(b)) => (*a - *b as i32 as f32).abs() < f32::EPSILON,
+
+            // Coercion situations, int -> float
+            (Cv::Int(a), Cv::Float(b)) => (*a as f32 - *b).abs() < f32::EPSILON,
+            (Cv::Float(a), Cv::Int(b)) => (*a - *b as f32).abs() < f32::EPSILON,
         }
     }
 }
@@ -104,10 +133,19 @@ impl PartialOrd for ComptimeVal {
         match (self, other) {
             (Cv::Bool(a), Cv::Bool(b)) => a.partial_cmp(b),
             (Cv::Int(a), Cv::Int(b)) => a.partial_cmp(b),
+            (Cv::Float(a), Cv::Float(b)) => a.partial_cmp(b),
 
             // Coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => (*a as i32).partial_cmp(b),
             (Cv::Int(a), Cv::Bool(b)) => a.partial_cmp(&(*b as i32)),
+
+            // Coercion situations, bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => (*a as i32 as f32).partial_cmp(b),
+            (Cv::Float(a), Cv::Bool(b)) => a.partial_cmp(&(*b as i32 as f32)),
+
+            // Coercion situations, int -> float
+            (Cv::Int(a), Cv::Float(b)) => (*a as f32).partial_cmp(b),
+            (Cv::Float(a), Cv::Int(b)) => a.partial_cmp(&(*b as f32)),
         }
     }
 }
@@ -120,6 +158,7 @@ impl std::ops::Neg for ComptimeVal {
         match self {
             Cv::Bool(a) => Cv::Int(-(a as i32)),
             Cv::Int(a) => Cv::Int(-a),
+            Cv::Float(a) => Cv::Float(-a),
         }
     }
 }
@@ -132,6 +171,7 @@ impl std::ops::Not for ComptimeVal {
         match self {
             Cv::Bool(a) => Cv::Bool(!a),
             Cv::Int(a) => Cv::Bool(a != 0),
+            Cv::Float(a) => Cv::Bool(a != 0.0),
         }
     }
 }
@@ -142,12 +182,22 @@ impl std::ops::Add for ComptimeVal {
     fn add(self, other: Self) -> Self {
         use ComptimeVal as Cv;
         match (self, other) {
+            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 + b as i32),
             (Cv::Int(a), Cv::Int(b)) => Cv::Int(a + b),
+            (Cv::Float(a), Cv::Float(b)) => Cv::Float(a + b),
 
             // coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => Cv::Int(a as i32 + b),
             (Cv::Int(a), Cv::Bool(b)) => Cv::Int(a + b as i32),
-            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 + b as i32),
+
+
+            // coercion situations, bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 + b),
+            (Cv::Float(a), Cv::Bool(b)) => Cv::Float(a + b as i32 as f32),
+
+            // coercion situations, int -> float
+            (Cv::Int(a), Cv::Float(b)) => Cv::Float(a as f32 + b),
+            (Cv::Float(a), Cv::Int(b)) => Cv::Float(a + b as f32),
         }
     }
 }
@@ -159,12 +209,21 @@ impl std::ops::Sub for ComptimeVal {
         use ComptimeVal as Cv;
 
         match (self, other) {
+            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 - b as i32),
             (Cv::Int(a), Cv::Int(b)) => Cv::Int(a - b),
+            (Cv::Float(a), Cv::Float(b)) => Cv::Float(a - b),
 
             // coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => Cv::Int(a as i32 - b),
             (Cv::Int(a), Cv::Bool(b)) => Cv::Int(a - b as i32),
-            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 - b as i32),
+
+            // coercion situations, bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 - b),
+            (Cv::Float(a), Cv::Bool(b)) => Cv::Float(a - b as i32 as f32),
+
+            // coercion situations, int -> float
+            (Cv::Int(a), Cv::Float(b)) => Cv::Float(a as f32 - b),
+            (Cv::Float(a), Cv::Int(b)) => Cv::Float(a - b as f32),
         }
     }
 }
@@ -175,12 +234,21 @@ impl std::ops::Mul for ComptimeVal {
     fn mul(self, other: Self) -> Self {
         use ComptimeVal as Cv;
         match (self, other) {
+            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 * b as i32),
             (Cv::Int(a), Cv::Int(b)) => Cv::Int(a * b),
+            (Cv::Float(a), Cv::Float(b)) => Cv::Float(a * b),
 
             // coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => Cv::Int(a as i32 * b),
             (Cv::Int(a), Cv::Bool(b)) => Cv::Int(a * b as i32),
-            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 * b as i32),
+
+            // coercion situations, bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 * b),
+            (Cv::Float(a), Cv::Bool(b)) => Cv::Float(a * b as i32 as f32),
+
+            // coercion situations, int -> float
+            (Cv::Int(a), Cv::Float(b)) => Cv::Float(a as f32 * b),
+            (Cv::Float(a), Cv::Int(b)) => Cv::Float(a * b as f32),
         }
     }
 }
@@ -191,12 +259,21 @@ impl std::ops::Div for ComptimeVal {
     fn div(self, other: Self) -> Self {
         use ComptimeVal as Cv;
         match (self, other) {
+            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 / b as i32),
             (Cv::Int(a), Cv::Int(b)) => Cv::Int(a / b),
+            (Cv::Float(a), Cv::Float(b)) => Cv::Float(a / b),
 
             // coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => Cv::Int(a as i32 / b),
             (Cv::Int(a), Cv::Bool(b)) => Cv::Int(a / b as i32),
-            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 / b as i32),
+
+            // coercion situations, bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 / b),
+            (Cv::Float(a), Cv::Bool(b)) => Cv::Float(a / b as i32 as f32),
+
+            // coercion situations, int -> float
+            (Cv::Int(a), Cv::Float(b)) => Cv::Float(a as f32 / b),
+            (Cv::Float(a), Cv::Int(b)) => Cv::Float(a / b as f32),
         }
     }
 }
@@ -207,12 +284,21 @@ impl std::ops::Rem for ComptimeVal {
     fn rem(self, other: Self) -> Self {
         use ComptimeVal as Cv;
         match (self, other) {
+            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 % b as i32),
             (Cv::Int(a), Cv::Int(b)) => Cv::Int(a % b),
+            (Cv::Float(a), Cv::Float(b)) => Cv::Float(a % b),
 
             // bool -> int
-            (Cv::Bool(a), Cv::Bool(b)) => Cv::Int(a as i32 % b as i32),
             (Cv::Bool(a), Cv::Int(b)) => Cv::Int(a as i32 % b),
             (Cv::Int(a), Cv::Bool(b)) => Cv::Int(a % b as i32),
+
+            // bool -> float
+            (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 % b),
+            (Cv::Float(a), Cv::Bool(b)) => Cv::Float(a % b as i32 as f32),
+
+            // int -> float
+            (Cv::Int(a), Cv::Float(b)) => Cv::Float(a as f32 % b),
+            (Cv::Float(a), Cv::Int(b)) => Cv::Float(a % b as f32),
         }
     }
 }
@@ -864,6 +950,7 @@ impl Expr {
                         let expr = match expr {
                             ComptimeVal::Bool(val) => val,
                             ComptimeVal::Int(val) => val != 0,
+                            ComptimeVal::Float(val) => val != 0.0
                         };
                         Some(ComptimeVal::bool(expr))
                     }
@@ -871,8 +958,17 @@ impl Expr {
                         let expr = match expr {
                             ComptimeVal::Bool(val) => val as i32,
                             ComptimeVal::Int(val) => val,
+                            ComptimeVal::Float(val) => val as i32,
                         };
                         Some(ComptimeVal::int(expr))
+                    }
+                    Tk::Float => {
+                        let expr = match expr {
+                            ComptimeVal::Bool(val) => val as i32 as f32,
+                            ComptimeVal::Int(val) => val as f32,
+                            ComptimeVal::Float(val) => val
+                        };
+                        Some(ComptimeVal::float(expr))
                     }
                     Tk::Void | Tk::Func(..) => {
                         panic!("unsupported type coercion")
@@ -909,6 +1005,18 @@ impl Expr {
                     }
                     (Tk::Int, Tk::Bool) => {
                         rhs = Expr::coercion(rhs, Type::int());
+                    }
+                    (Tk::Bool, Tk::Float) => {
+                        lhs = Expr::coercion(lhs, Type::float());
+                    }
+                    (Tk::Float, Tk::Bool) => {
+                        rhs = Expr::coercion(rhs, Type::float());
+                    }
+                    (Tk::Int, Tk::Float) => {
+                        lhs = Expr::coercion(lhs, Type::float());
+                    }
+                    (Tk::Float, Tk::Int) => {
+                        rhs = Expr::coercion(rhs, Type::float());
                     }
                     _ => {
                         if lhs_ty != rhs_ty {
@@ -980,7 +1088,7 @@ impl Expr {
                             expr = Expr::coercion(expr, Type::int());
                         }
                         let ty = expr.ty();
-                        if ty.is_int() {
+                        if ty.is_int() || ty.is_float() {
                             ty.clone()
                         } else {
                             panic!("unsupported type for negation: {:?}", ty);
@@ -990,8 +1098,15 @@ impl Expr {
                         let ty = expr.ty();
                         if ty.is_bool() {
                             // Do nothing
-                        } else if ty.is_int() {
+                        } else if ty.is_int() || ty.is_float() {
                             // TODO: How do we convert int to bool?
+                            let zero = if ty.is_int() {
+                                Expr::const_(ComptimeVal::int(0))
+                            } else {
+                                Expr::const_(ComptimeVal::float(0.0))
+                            };
+
+                            expr = Expr::binary(BinaryOp::Ne, expr, zero);
                         } else {
                             panic!("unsupported type for logical not: {:?}", ty);
                         }
@@ -1012,6 +1127,7 @@ impl Expr {
                 match ty.kind() {
                     Tk::Bool => expr = Expr::coercion(expr, Type::bool()),
                     Tk::Int => expr = Expr::coercion(expr, Type::int()),
+                    Tk::Float => expr = Expr::coercion(expr, Type::float()),
                     Tk::Func(..) | Tk::Void => {
                         unreachable!()
                     }
@@ -1028,5 +1144,268 @@ impl Expr {
         }
 
         expr
+    }
+}
+
+use std::fmt::{self, Display};
+
+const VERTICAL: &str = "│";
+const BRANCH: &str = "├";
+const LAST_BRANCH: &str = "└";
+const HORIZONTAL: &str = "──";
+
+struct TreeFormatter<'a, 'b> {
+    f: &'a mut fmt::Formatter<'b>,
+    level: usize,
+    is_last: Vec<bool>,
+}
+
+impl<'a, 'b> TreeFormatter<'a, 'b> {
+    fn new(f: &'a mut fmt::Formatter<'b>) -> Self {
+        Self {
+            f,
+            level: 0,
+            is_last: Vec::new(),
+        }
+    }
+
+    fn write_prefix(&mut self) -> fmt::Result {
+        for &is_last in self.is_last.iter().take(self.level) {
+            if is_last {
+                write!(self.f, "  ")?;
+            } else {
+                write!(self.f, "{} ", VERTICAL)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn write_branch(&mut self, is_last: bool) -> fmt::Result {
+        self.write_prefix()?;
+        if is_last {
+            write!(self.f, "{}{} ", LAST_BRANCH, HORIZONTAL)?;
+        } else {
+            write!(self.f, "{}{} ", BRANCH, HORIZONTAL)?;
+        }
+        Ok(())
+    }
+
+    fn begin_child(&mut self, is_last: bool) {
+        self.level += 1;
+        self.is_last.push(is_last);
+    }
+
+    fn end_child(&mut self) {
+        self.level -= 1;
+        self.is_last.pop();
+    }
+}
+
+impl Display for CompUnit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut tf = TreeFormatter::new(f);
+        // 使用 tf.f 而不是直接使用 f
+        writeln!(tf.f, "CompUnit")?;
+        for (i, item) in self.items.iter().enumerate() {
+            item.fmt_tree(&mut tf, i == self.items.len() - 1)?;
+        }
+        Ok(())
+    }
+}
+
+trait TreeDisplay {
+    fn fmt_tree(&self, tf: &mut TreeFormatter, is_last: bool) -> fmt::Result;
+}
+
+impl TreeDisplay for Item {
+    fn fmt_tree(&self, tf: &mut TreeFormatter, is_last: bool) -> fmt::Result {
+        match self {
+            Item::Decl(decl) => decl.fmt_tree(tf, is_last),
+            Item::FuncDef(func) => {
+                tf.write_branch(is_last)?;
+                writeln!(tf.f, "FuncDef {:?} {}", func.ret_ty, func.ident)?;
+                
+                tf.begin_child(is_last);
+                
+                // Format parameters
+                for (i, param) in func.params.iter().enumerate() {
+                    let is_last_param = i == func.params.len() - 1;
+                    tf.write_branch(is_last_param && func.body.items.is_empty())?;
+                    writeln!(tf.f, "Param {:?} {}", param.ty, param.ident)?;
+                }
+
+                // Format body
+                if !func.body.items.is_empty() {
+                    func.body.fmt_tree(tf, true)?;
+                }
+                
+                tf.end_child();
+                Ok(()) // 添加这一行来返回 Result
+            }
+        }
+    }
+}
+
+impl TreeDisplay for Decl {
+    fn fmt_tree(&self, tf: &mut TreeFormatter, is_last: bool) -> fmt::Result {
+        match self {
+            Decl::ConstDecl(decl) => {
+                tf.write_branch(is_last)?;
+                writeln!(tf.f, "ConstDecl {:?}", decl.ty)?;
+                
+                tf.begin_child(is_last);
+                for (i, def) in decl.defs.iter().enumerate() {
+                    tf.write_branch(i == decl.defs.len() - 1)?;
+                    write!(tf.f, "{} = ", def.ident)?;
+                    def.init.fmt_expr(tf.f)?;
+                    writeln!(tf.f)?;
+                }
+                tf.end_child();
+            }
+            Decl::VarDecl(decl) => {
+                tf.write_branch(is_last)?;
+                writeln!(tf.f, "VarDecl {:?}", decl.ty)?;
+                
+                tf.begin_child(is_last);
+                for (i, def) in decl.defs.iter().enumerate() {
+                    tf.write_branch(i == decl.defs.len() - 1)?;
+                    write!(tf.f, "{}", def.ident)?;
+                    if let Some(init) = &def.init {
+                        write!(tf.f, " = ")?;
+                        init.fmt_expr(tf.f)?;
+                    }
+                    writeln!(tf.f)?;
+                }
+                tf.end_child();
+            }
+        }
+        Ok(())
+    }
+}
+
+impl TreeDisplay for Block {
+    fn fmt_tree(&self, tf: &mut TreeFormatter, is_last: bool) -> fmt::Result {
+        tf.write_branch(is_last)?;
+        writeln!(tf.f, "Block {{")?;
+        
+        tf.begin_child(is_last);
+        for (i, item) in self.items.iter().enumerate() {
+            match item {
+                BlockItem::Decl(decl) => decl.fmt_tree(tf, i == self.items.len() - 1)?,
+                BlockItem::Stmt(stmt) => stmt.fmt_tree(tf, i == self.items.len() - 1)?,
+            }
+        }
+        tf.end_child();
+        
+        tf.write_branch(is_last)?;
+        writeln!(tf.f, "}}")
+    }
+}
+
+impl TreeDisplay for Stmt {
+    fn fmt_tree(&self, tf: &mut TreeFormatter, is_last: bool) -> fmt::Result {
+        match self {
+            Stmt::Assign(lval, expr) => {
+                tf.write_branch(is_last)?;
+                write!(tf.f, "{} = ", lval.ident)?;
+                expr.fmt_expr(tf.f)?;
+                writeln!(tf.f)
+            }
+            Stmt::Expr(ExprStmt { expr }) => {
+                tf.write_branch(is_last)?;
+                if let Some(expr) = expr {
+                    expr.fmt_expr(tf.f)?;
+                }
+                writeln!(tf.f)
+            }
+            Stmt::Block(block) => block.fmt_tree(tf, is_last),
+            Stmt::If(cond, then_block, else_block) => {
+                tf.write_branch(is_last)?;
+                write!(tf.f, "if ")?;
+                cond.fmt_expr(tf.f)?;
+                writeln!(tf.f)?;
+                
+                tf.begin_child(is_last);
+                then_block.fmt_tree(tf, else_block.is_none())?;
+                if let Some(else_block) = else_block {
+                    tf.write_branch(true)?;
+                    writeln!(tf.f, "else")?;
+                    else_block.fmt_tree(tf, true)?;
+                }
+                tf.end_child();
+                Ok(())
+            }
+            Stmt::While(cond, block) => {
+                tf.write_branch(is_last)?;
+                write!(tf.f, "while ")?;
+                cond.fmt_expr(tf.f)?;
+                writeln!(tf.f)?;
+                
+                tf.begin_child(is_last);
+                block.fmt_tree(tf, true)?;
+                tf.end_child();
+                Ok(())
+            }
+            Stmt::Break => {
+                tf.write_branch(is_last)?;
+                writeln!(tf.f, "break")
+            }
+            Stmt::Continue => {
+                tf.write_branch(is_last)?;
+                writeln!(tf.f, "continue")
+            }
+            Stmt::Return(ReturnStmt { expr }) => {
+                tf.write_branch(is_last)?;
+                write!(tf.f, "return")?;
+                if let Some(expr) = expr {
+                    write!(tf.f, " ")?;
+                    expr.fmt_expr(tf.f)?;
+                }
+                writeln!(tf.f)
+            }
+        }
+    }
+}
+
+// 为表达式实现一个简单的格式化trait
+trait ExprFormat {
+    fn fmt_expr(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
+}
+
+impl ExprFormat for Expr {
+    fn fmt_expr(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.kind {
+            ExprKind::Const(val) => match val {
+                ComptimeVal::Bool(b) => write!(f, "{}", b),
+                ComptimeVal::Int(i) => write!(f, "{}", i),
+                ComptimeVal::Float(fl) => write!(f, "{}", fl),
+            },
+            ExprKind::Binary(op, lhs, rhs) => {
+                write!(f, "(")?;
+                lhs.fmt_expr(f)?;
+                write!(f, " {:?} ", op)?;
+                rhs.fmt_expr(f)?;
+                write!(f, ")")
+            }
+            ExprKind::Unary(op, expr) => {
+                write!(f, "{:?}", op)?;
+                expr.fmt_expr(f)
+            }
+            ExprKind::FuncCall(FuncCall { ident, args }) => {
+                write!(f, "{}(", ident)?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    arg.fmt_expr(f)?;
+                }
+                write!(f, ")")
+            }
+            ExprKind::LVal(LVal { ident }) => write!(f, "{}", ident),
+            ExprKind::Coercion(expr) => {
+                write!(f, "({:?})", self.ty.as_ref().unwrap())?;
+                expr.fmt_expr(f)
+            }
+        }
     }
 }
