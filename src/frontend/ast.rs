@@ -108,7 +108,7 @@ impl PartialEq for ComptimeVal {
         match (self, other) {
             (Cv::Bool(a), Cv::Bool(b)) => a == b,
             (Cv::Int(a), Cv::Int(b)) => a == b,
-            (Cv::Float(a), Cv::Float(b)) => (*a - *b).abs() < f32::EPSILON, 
+            (Cv::Float(a), Cv::Float(b)) => (*a - *b).abs() < f32::EPSILON,
 
             // Coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => (*a as i32) == *b,
@@ -189,7 +189,6 @@ impl std::ops::Add for ComptimeVal {
             // coercion situations, bool -> int
             (Cv::Bool(a), Cv::Int(b)) => Cv::Int(a as i32 + b),
             (Cv::Int(a), Cv::Bool(b)) => Cv::Int(a + b as i32),
-
 
             // coercion situations, bool -> float
             (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 + b),
@@ -671,6 +670,33 @@ impl SymbolTable {
     /// Register SysY library functions to the symbol table.
     pub fn register_sysylib(&mut self) {
         // TODO: Register SysY library functions to the symbol table
+        // 定义返回类型和参数类型
+        let void_type = Type::void();
+        let bool_type = Type::bool();
+        let int_type = Type::int();
+
+        // Sysy库函数（存疑）
+        let functions = vec![
+            ("print", vec![int_type.clone()], int_type.clone()), // print(int) -> int
+            ("println", vec![int_type.clone()], int_type.clone()), // println(int) -> int
+            ("scanf", vec![void_type.clone()], bool_type.clone()), // scanf(void) -> bool
+            ("malloc", vec![int_type.clone()], int_type.clone()), // malloc(int) -> int
+            ("free", vec![int_type.clone()], void_type.clone()), // free(int) -> void
+        ];
+
+        // 将函数注册到当前作用域
+        for (name, params, ret) in functions {
+            let func_type = Type::func(params.clone(), ret);
+
+            // 构造新的 SymbolEntry
+            let entry = SymbolEntry {
+                ty: func_type,
+                comptime: None, // 可以根据需要设置为 Some(ComptimeVal)
+                ir_value: None, // 可以根据需要设置为 Some(IrGenResult)
+            };
+
+            self.insert(name, entry);
+        }
     }
 }
 
@@ -950,7 +976,7 @@ impl Expr {
                         let expr = match expr {
                             ComptimeVal::Bool(val) => val,
                             ComptimeVal::Int(val) => val != 0,
-                            ComptimeVal::Float(val) => val != 0.0
+                            ComptimeVal::Float(val) => val != 0.0,
                         };
                         Some(ComptimeVal::bool(expr))
                     }
@@ -966,7 +992,7 @@ impl Expr {
                         let expr = match expr {
                             ComptimeVal::Bool(val) => val as i32 as f32,
                             ComptimeVal::Int(val) => val as f32,
-                            ComptimeVal::Float(val) => val
+                            ComptimeVal::Float(val) => val,
                         };
                         Some(ComptimeVal::float(expr))
                     }
@@ -1224,9 +1250,9 @@ impl TreeDisplay for Item {
             Item::FuncDef(func) => {
                 tf.write_branch(is_last)?;
                 writeln!(tf.f, "FuncDef {:?} {}", func.ret_ty, func.ident)?;
-                
+
                 tf.begin_child(is_last);
-                
+
                 // Format parameters
                 for (i, param) in func.params.iter().enumerate() {
                     let is_last_param = i == func.params.len() - 1;
@@ -1238,7 +1264,7 @@ impl TreeDisplay for Item {
                 if !func.body.items.is_empty() {
                     func.body.fmt_tree(tf, true)?;
                 }
-                
+
                 tf.end_child();
                 Ok(()) // 添加这一行来返回 Result
             }
@@ -1252,7 +1278,7 @@ impl TreeDisplay for Decl {
             Decl::ConstDecl(decl) => {
                 tf.write_branch(is_last)?;
                 writeln!(tf.f, "ConstDecl {:?}", decl.ty)?;
-                
+
                 tf.begin_child(is_last);
                 for (i, def) in decl.defs.iter().enumerate() {
                     tf.write_branch(i == decl.defs.len() - 1)?;
@@ -1265,7 +1291,7 @@ impl TreeDisplay for Decl {
             Decl::VarDecl(decl) => {
                 tf.write_branch(is_last)?;
                 writeln!(tf.f, "VarDecl {:?}", decl.ty)?;
-                
+
                 tf.begin_child(is_last);
                 for (i, def) in decl.defs.iter().enumerate() {
                     tf.write_branch(i == decl.defs.len() - 1)?;
@@ -1287,7 +1313,7 @@ impl TreeDisplay for Block {
     fn fmt_tree(&self, tf: &mut TreeFormatter, is_last: bool) -> fmt::Result {
         tf.write_branch(is_last)?;
         writeln!(tf.f, "Block {{")?;
-        
+
         tf.begin_child(is_last);
         for (i, item) in self.items.iter().enumerate() {
             match item {
@@ -1296,7 +1322,7 @@ impl TreeDisplay for Block {
             }
         }
         tf.end_child();
-        
+
         tf.write_branch(is_last)?;
         writeln!(tf.f, "}}")
     }
@@ -1324,7 +1350,7 @@ impl TreeDisplay for Stmt {
                 write!(tf.f, "if ")?;
                 cond.fmt_expr(tf.f)?;
                 writeln!(tf.f)?;
-                
+
                 tf.begin_child(is_last);
                 then_block.fmt_tree(tf, else_block.is_none())?;
                 if let Some(else_block) = else_block {
@@ -1340,7 +1366,7 @@ impl TreeDisplay for Stmt {
                 write!(tf.f, "while ")?;
                 cond.fmt_expr(tf.f)?;
                 writeln!(tf.f)?;
-                
+
                 tf.begin_child(is_last);
                 block.fmt_tree(tf, true)?;
                 tf.end_child();
