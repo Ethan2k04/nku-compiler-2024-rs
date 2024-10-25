@@ -1,7 +1,5 @@
 # NKU Compiler 2024 (Rust)
 
-> **! 本仓库为学生Fork的分支**
-
 本框架由 2024 年编译系统实现赛 RISC-V 赛道作品改编而来，原代码仓库为：
 
 [https://github.com/JuniMay/orzcc](https://github.com/JuniMay/orzcc)
@@ -17,12 +15,8 @@
 ## Implementation
 
 - 词法/语法分析
-  - 使用lalrpop构造lexer和parser
-  - 新增支持的tokens：
-      - 乘法（*）e.g. "2 * 4;"
-      - 除法（/）e.g. "6 / 3;"
-      - 取模（%）e.g. "8 % 3;"
-      - 比较运算（<, >, <=, >=）e.g. "return a > b;"
+- 中间代码生成
+- ...
 
 ## About Us
 
