@@ -14,40 +14,36 @@
 
 ## Implementation
 
-- **词法/语法分析** ☑️
+- [x] **词法/语法分析**
   - 负责将源代码转化为语法树，识别语言的基本结构。
-- **中间代码生成**
+- [ ] **中间代码生成**
   - 生成平台无关的中间代码，以便后续优化和目标代码生成。
-- **代码优化**
+- [ ] **代码优化**
   - 通过消除冗余代码和改进算法，提高最终生成代码的执行效率。
-- **目标代码生成**
+- [ ] **目标代码生成**
   - 将优化后的中间代码转化为特定平台的机器代码。
-- **错误处理与调试**
+- [ ] **错误处理与调试**
   - 实现全面的错误检测与调试信息输出，提升开发者体验。
-
-## Features
-
-- 兼容RISC-V
-- 模块化设计，便于扩展
-- 详细的文档和示例代码
-
-## About Us
-
-我们是热爱编译器的 Rustaceans ✨，致力于构建一个高效、灵活的编译器工具链。我们的团队由经验丰富的开发者和编程语言爱好者组成。
-
-![nku_compiler_logo](https://github.com/user-attachments/assets/93b70721-6225-41f5-96a4-3b04f8a43712)
-
-## Getting Started
 
 ## Dependencies
 
 - **thiserror**: `1.0.61`
 - **hexponent**: `0.3.1`
 - **lalrpop**: `0.20.2`
-- 
-### Installation
+
+## Installation
 
 1. 克隆仓库：
    ```bash
    git clone https://github.com/Ethan2k04/nku-compiler-2024-rs.git
    cd src
+
+## About Us
+
+我们是热爱编译器的 Rustaceans ✨，致力于构建一个高效、灵活的编译器工具链。
+
+我们的团队由经验丰富的开发者和编程语言爱好者组成。
+
+![nku_compiler_logo](https://github.com/user-attachments/assets/93b70721-6225-41f5-96a4-3b04f8a43712)
+
+*如果你有任何问题，欢迎提交pr~*
