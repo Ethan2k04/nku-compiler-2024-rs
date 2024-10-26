@@ -1,7 +1,5 @@
 # NKU Compiler 2024 (Rust)
 
-## **<span style="color: red;">这段文字是红色的</span>**
-
 本框架由 2024 年编译系统实现赛 RISC-V 赛道作品改编而来，原代码仓库为：
 
 [https://github.com/JuniMay/orzcc](https://github.com/JuniMay/orzcc)
