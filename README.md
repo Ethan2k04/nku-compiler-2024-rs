@@ -1,6 +1,6 @@
 # NKU Compiler 2024 (Rust)
 
-## **! 本仓库为学生Fork的分支**
+## **<span style="color: red;">这段文字是红色的</span>**
 
 本框架由 2024 年编译系统实现赛 RISC-V 赛道作品改编而来，原代码仓库为：
 
