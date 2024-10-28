@@ -1,0 +1,422 @@
+use crate::frontend::{
+    ast::*,
+    parse::parse_hexadecimal_float,
+};
+
+grammar;
+
+// 处理空白字符、单行注释、多行注释
+match {
+  r"\s*" => {},
+  r"//[^\n\r]*[\n\r]*" => {},
+  r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => {},
+  _
+}
+
+// 终结符
+
+// Identifier -> dentifier-nondigit | identifier identifier-nondigit | identifier digit
+Ident: String = r"[_a-zA-Z][_a-zA-Z0-9]*" => <>.to_string();
+
+// IntConst
+pub Int: i64 = {
+    r"[1-9][0-9]*" => i64::from_str_radix(<>, 10).unwrap(),
+    r"0[0-7]*" => i64::from_str_radix(<>, 8).unwrap(),
+    r"0[xX][0-9a-fA-F]+" => i64::from_str_radix(&<>[2..], 16).unwrap(),
+}
+
+// FloatConst
+Float: f32 = {
+  r"((([0-9]*[.][0-9]*([eE][+-]?[0-9]+)?)|([0-9]+[eE][+-]?[0-9]+))[fLlL]?)" => <>.parse::<f32>().unwrap(),
+  r"(0[xX](([0-9A-Fa-f]*[.][0-9A-Fa-f]*([pP][+-]?[0-9]+)?)|([0-9A-Fa-f]+[pP][+-]?[0-9]+))[fLlL]?)" => {
+    parse_hexadecimal_float(<>)
+  }
+}
+
+// EBNF
+
+// CompUnit -> [ CompUnit ] ( Decl | FuncDef )
+pub SysY: CompUnit = {
+    <items: (Item)*> => CompUnit { items }
+}
+
+Item: Item = {
+    <d: Decl> => Item::Decl(d),
+    <f: FuncDef> => Item::FuncDef(f), 
+}
+
+// Decl -> ConstDecl | VarDecl
+Decl: Decl = {
+    <c: ConstDecl> => Decl::ConstDecl(c),
+    <v: VarDecl> => Decl::VarDecl(v),
+}
+
+// BType -> 'int' | 'void' | 'float'
+BType: Type = {
+    "int" => Type::Int,
+    "void" => Type::Void,
+    "float" => Type::Float,
+}
+
+// ConstDecl -> 'const' BType ConstDef { ',' ConstDef } ';'
+ConstDecl: ConstDecl = {
+    "const" <ty: BType> <def: ConstDef> <mut defs: ("," <ConstDef>)*> ";" => {
+        defs.insert(0, def);
+        ConstDecl { ty, defs }
+    }
+}
+
+// ConstDef -> Ident { '[' ConstExp ']' } '=' ConstInitVal
+ConstDef: ConstDef = {
+    <ident: Ident> <dims: ("[" <ConstExp> "]")*> "=" <init: ConstInitVal> => {
+        ConstDef { ident, dims, init }
+    }
+}
+
+// ConstInitVal -> ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
+ConstInitVal: ConstInitVal = {
+    <exp: ConstExp> => ConstInitVal::Exp(exp),
+    "{" <ival: ConstInitVal> <mut ivals: ("," <ConstInitVal>)*> "}" => {
+        ivals.insert(0, ival);
+        ConstInitVal::InitList(ivals)
+    },
+    "{" "}" => {
+        ConstInitVal::InitList(vec![])
+    },
+}
+
+// VarDecl -> BType VarDef { ',' VarDef } ';'
+VarDecl: VarDecl = {
+    <ty: BType> <def: VarDef> <mut defs: ("," <VarDef>)*> ";" => {
+        defs.insert(0, def);
+        VarDecl { ty, defs }
+    },
+}
+
+// VarDef -> Ident { '[' ConstExp ']' } | Ident { '[' ConstExp ']' } '=' InitVal
+VarDef: VarDef = {
+    <ident: Ident> <dims: ("[" <ConstExp> "]")*> => {
+        VarDef {
+            ident, 
+            dims, 
+            init: None }
+    },
+    <ident: Ident> <dims: ("[" <ConstExp> "]")*> "=" <init: InitVal> => {
+        VarDef {
+            ident, 
+            dims, 
+            init: Some(init) }
+    },
+}
+
+// InitVal -> Exp | '{' [ InitVal { ',' InitVal } ] '}'
+InitVal: InitVal = {
+    <exp: Exp> => InitVal::Exp(exp),
+    "{" <ival: InitVal> <mut ivals: ("," <InitVal>)*> "}" => {
+        ivals.insert(0, ival);
+        InitVal::InitList(ivals)
+    },
+    "{" "}" => {
+        InitVal::InitList(vec![])
+    },
+}
+
+// FuncDef -> FuncType Ident '(' [FuncFParams] ')' Block
+FuncDef: FuncDef = {
+    <ret_ty: BType> <ident: Ident> "(" ")" <body: Block> => {
+        FuncDef { ret_ty, ident, params: vec![], body }
+    },
+    <ret_ty: BType> <ident: Ident> "(" <params: FuncFParams> ")" <body: Block> => {
+        FuncDef { ret_ty, ident, params, body }
+    },
+}
+
+// FuncFParams -> FuncFParam { ',' FuncFParam }
+FuncFParams: Vec<FuncFParam> = {
+    <param: FuncFParam> <mut params: ("," <FuncFParam>)*> => {
+        params.insert(0, param);
+        params
+    },
+}
+
+// FuncFParam -> BType Ident ['[' ']' { '[' Exp ']' }]
+FuncFParam: FuncFParam = {
+    <ty: BType> <ident: Ident> <dims: ("[" "]" <("[" <ConstExp> "]")*>)?> => {
+        FuncFParam { ty, ident, dims }
+    },
+}
+
+// Block -> '{' { BlockItem } '}'
+Block: Block = {
+    "{" <items: (BlockItem)*> "}" => Block { items },
+}
+
+// BlockItem -> Decl | Stmt
+BlockItem: BlockItem = {
+    <d: Decl> => BlockItem::Decl(d),
+    <s: Stmt> => BlockItem::Stmt(s),
+}
+
+// Stmt ->  LVal '=' Exp ';' | [Exp] ';' | Block
+//      | 'if' '( Cond ')' Stmt [ 'else' Stmt ]
+//      | 'while' '(' Cond ')' Stmt
+//      | 'break' ';' | 'continue' ';'
+//      | 'return' [Exp] ';'
+// reference: https://github.com/pku-minic/kira-rs/blob/master/src/sysy.lalrpop, line 97 - 129
+Stmt: Stmt = {
+    MatchedStmt => <>,
+    OpenStmt => <>,
+}
+
+MatchedStmt: Stmt = {
+    <lval: LVal> "=" <exp: Exp> ";" => {
+        Stmt::Assign(AssignStmt { lval, exp })
+    },
+    <exp: (Exp)?> ";" => {
+        Stmt::Exp(ExpStmt { exp })
+    },
+    <block: Block> => {
+        Stmt::Block(block)
+    },
+    "if" "(" <cond: Cond> ")" <then: MatchedStmt> "else" <else_then: MatchedStmt> => {
+        Stmt::If(Box::new(IfStmt {
+            cond,
+            then: Box::new(then),
+            else_: Some(Box::new(else_then)),
+        }))
+    },
+    "while" "(" <cond: Cond> ")" <body: MatchedStmt> => {
+        Stmt::While(Box::new(WhileStmt {
+            cond, 
+            body: Box::new(body)
+        }))
+    },
+    "break" ";" => {
+        Stmt::Break
+    },
+    "continue" ";" => {
+        Stmt::Continue
+    },
+    "return" <exp: (Exp)?> ";" => {
+        Stmt::Return(ReturnStmt { exp })
+    },
+}
+
+OpenStmt: Stmt = {
+    "if" "(" <cond: Cond> ")" <s1: Stmt> => {
+        Stmt::If(Box::new(IfStmt {
+            cond,
+            then: Box::new(s1),
+            else_: None,
+        }))
+    },
+    "if" "(" <cond: Cond> ")" <s1: MatchedStmt> "else" <s2: OpenStmt> => {
+        Stmt::If(Box::new(IfStmt {
+            cond,
+            then: Box::new(s1),
+            else_: Some(Box::new(s2)),
+        }))
+    },
+    "while" "(" <cond: Cond> ")" <s: OpenStmt> => {
+        Stmt::While(Box::new(WhileStmt {
+            cond, 
+            body: Box::new(s)
+        }))
+    },
+}
+
+// Exp -> AddExp
+Exp: Exp = AddExp => <>;
+
+// ConstExp -> AddExp
+ConstExp: Exp = AddExp => <>;
+
+// Cond -> LOrExp
+Cond: Exp = LOrExp => <>;
+
+// LVal -> Ident {'[' Exp ']'}
+LVal: LVal = {
+    <ident: Ident> <indices: ("[" <Exp> "]")*> => {
+        LVal { ident, indices }
+    },
+}
+
+// PrimaryExp -> '(' Exp ')' | LVal | Number
+PrimaryExp: Exp = {
+    "(" <exp: Exp> ")" => {
+        exp
+    },
+    <lval: LVal> => {
+        Exp {
+            kind: ExpKind::LVal(lval),
+            ty: Some(Type::Int),
+        }
+    },
+    <number: Number> => {
+        Exp {
+            kind: ExpKind::Const(number),
+            ty: Some(Type::Int),
+        }
+        // Exp::const_(number)
+    },
+}
+
+// Number -> IntConst | floatConst
+Number: ComptimeVal = {
+    <int: Int> => {
+        ComptimeVal::Int(int)
+    },
+    <float: Float> => {
+        ComptimeVal::Float(float)
+    },
+}
+
+// UnaryExp -> PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
+UnaryExp: Exp = {
+    PrimaryExp => <>,
+    <ident: Ident> "(" ")" => {
+        Exp {
+            kind: ExpKind::FuncCall(FuncCall {
+                ident,
+                args: vec![],
+            }),
+            ty: None,
+        }
+    },
+    <ident: Ident> "(" <arg: Exp> <mut args: ("," <Exp>)*> ")" => {
+        args.insert(0, arg);
+        Exp {
+            kind: ExpKind::FuncCall(FuncCall {
+                ident,
+                args,
+            }),
+            ty: None,
+        }
+    },
+    "+" <e: UnaryExp> => {
+        Exp {
+            kind: ExpKind::Unary(UnaryOp::Pos, Box::new(e)),
+            ty: None,
+        }
+    },
+    "-" <e: UnaryExp> => {
+        Exp {
+            kind: ExpKind::Unary(UnaryOp::Neg, Box::new(e)),
+            ty: None,
+        }
+    },
+    "!" <e: UnaryExp> => {
+        Exp {
+            kind: ExpKind::Unary(UnaryOp::Not, Box::new(e)),
+            ty: None,
+        }
+    },
+}
+
+// MulExp -> UnaryExp | MulExp ('*' | '/' | '%') UnaryExp
+MulExp: Exp = {
+    UnaryExp => <>,
+    <lhs: MulExp> "*" <rhs: UnaryExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Mul, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: MulExp> "/" <rhs: UnaryExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Div, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: MulExp> "%" <rhs: UnaryExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Mod, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+}
+
+// AddExp -> MulExp | AddExp ('+' | '−') MulExp
+AddExp: Exp = {
+    MulExp => <>,
+    <lhs: AddExp> "+" <rhs: MulExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Add, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: AddExp> "-" <rhs: MulExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Sub, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+}
+
+// RelExp -> AddExp | RelExp ('<' | '>' | '<=' | '>=') AddExp
+RelExp: Exp = {
+    AddExp => <>,
+    <lhs: RelExp> "<" <rhs: AddExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Lt, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: RelExp> ">" <rhs: AddExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Gt, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: RelExp> "<=" <rhs: AddExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Le, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: RelExp> ">=" <rhs: AddExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Ge, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+}
+
+// EqExp -> RelExp | EqExp ('==' | '!=') RelExp
+EqExp: Exp = {
+    RelExp => <>,
+    <lhs: EqExp> "==" <rhs: RelExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Eq, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+    <lhs: EqExp> "!=" <rhs: RelExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Ne, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+}
+
+// LAndExp -> EqExp | LAndExp '&&' EqExp
+LAndExp: Exp = {
+    EqExp => <>,
+    <lhs: LAndExp> "&&" <rhs: EqExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::And, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+}
+
+// LOrExp -> LAndExp | LOrExp '||' LAndExp
+LOrExp: Exp = {
+    LAndExp => <>,
+    <lhs: LOrExp> "||" <rhs: LAndExp> => {
+        Exp {
+            kind: ExpKind::Binary(BinaryOp::Or, Box::new(lhs), Box::new(rhs)),
+            ty: None,
+        }
+    },
+}

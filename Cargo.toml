@@ -1,0 +1,23 @@
+[package]
+name = "compiler-in-rust"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+lalrpop = "0.19.7"
+
+[dependencies]
+lalrpop-util = { version = "0.19.7", features = ["lexer"], optional = true  }
+hexponent = { version = "0.3.1", optional = true }
+clap = { version = "4.0", features = ["derive"] }
+
+[features]
+default = [
+    "target-riscv64",
+    "frontend-sysy",  # comment this if its too slow to compile
+    "hexponent"
+]
+
+target-riscv64 = []
+
+frontend-sysy = ["dep:lalrpop-util"]
