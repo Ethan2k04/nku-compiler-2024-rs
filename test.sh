@@ -12,7 +12,6 @@ for sy_file in $(find "$TEST_DIR" -name "*.sy"); do
     # 获取文件名（不带目录和扩展名）
     base_name=$(basename "$sy_file" .sy)
 
-    # 运行编译器，假设编译器的可执行文件名是 `nkucc`
     # 并将输出保存到对应的 .out 文件中
     RUSTFLAGS="-A warnings" cargo run -- -i "$sy_file" > "$OUTPUT_DIR/$base_name.out" 2> "$OUTPUT_DIR/$base_name.err"
 

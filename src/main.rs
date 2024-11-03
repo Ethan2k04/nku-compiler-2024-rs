@@ -15,10 +15,9 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
-    let args = Cli::parse();
-    let input = read_to_string(&args.input)?;
+    let input = read_to_string("src/test.sy")?;
     let parser = SysYParser::new();
-    let ast = parser.parse(&input).unwrap();
+    let mut ast = parser.parse(&input).unwrap();
     // println!("{:#?}", ast);
     println!(
         "{} {} {}",
@@ -26,6 +25,18 @@ fn main() -> Result<()> {
         "Abstract Syntax Tree",
         "=".repeat(12)
     );
+    println!("{:#?}", ast);
+
+    ast.type_check();
+
+    println!(
+        "{} {} {}",
+        "=".repeat(12),
+        "After type check",
+        "=".repeat(12)
+    );
+
     println!("{}", ast);
+
     Ok(())
 }

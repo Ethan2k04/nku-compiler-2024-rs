@@ -1,14 +1,7 @@
 int main() {
-    putint(-2147483648); putch(10);
-    //putint(2147483647); putch(10);
-    return 0;
-}
-
-int c = 1;
-
-int main() {
-    int a = -1;
-    int b = 1;
-    int c[3] = {1, 2, 3};
+    int a = -1 + 2;
+    float b = 1.64 - 1;
+    int c[3 + 2][2] = {{},{3,4},1,2};
+    int d[5][4][3] =  {{{2,3},6,7},7,8,11};
     return a;
 }

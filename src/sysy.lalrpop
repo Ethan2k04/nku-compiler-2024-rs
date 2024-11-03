@@ -1,5 +1,6 @@
 use crate::frontend::{
     ast::*,
+    types::*,
     parse::parse_hexadecimal_float,
 };
 
@@ -53,9 +54,9 @@ Decl: Decl = {
 
 // BType -> 'int' | 'void' | 'float'
 BType: Type = {
-    "int" => Type::Int,
-    "void" => Type::Void,
-    "float" => Type::Float,
+    "int" => Type::int(),
+    "void" => Type::void(),
+    "float" => Type::float(),
 }
 
 // ConstDecl -> 'const' BType ConstDef { ',' ConstDef } ';'
@@ -74,14 +75,20 @@ ConstDef: ConstDef = {
 }
 
 // ConstInitVal -> ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
-ConstInitVal: ConstInitVal = {
-    <exp: ConstExp> => ConstInitVal::Exp(exp),
+ConstInitVal: Exp = {
+    <exp: ConstExp> => exp,
     "{" <ival: ConstInitVal> <mut ivals: ("," <ConstInitVal>)*> "}" => {
         ivals.insert(0, ival);
-        ConstInitVal::InitList(ivals)
+        Exp {
+            kind: ExpKind::InitList(ivals),
+            ty: None,
+        }
     },
     "{" "}" => {
-        ConstInitVal::InitList(vec![])
+        Exp {
+            kind: ExpKind::InitList(vec![]),
+            ty: None,
+        }
     },
 }
 
@@ -110,14 +117,20 @@ VarDef: VarDef = {
 }
 
 // InitVal -> Exp | '{' [ InitVal { ',' InitVal } ] '}'
-InitVal: InitVal = {
-    <exp: Exp> => InitVal::Exp(exp),
+InitVal: Exp = {
+    <exp: Exp> => exp,
     "{" <ival: InitVal> <mut ivals: ("," <InitVal>)*> "}" => {
         ivals.insert(0, ival);
-        InitVal::InitList(ivals)
+        Exp {
+            kind: ExpKind::InitList(ivals),
+            ty: None,
+        }
     },
     "{" "}" => {
-        InitVal::InitList(vec![])
+        Exp {
+            kind: ExpKind::InitList(vec![]),
+            ty: None,
+        }
     },
 }
 
@@ -242,6 +255,7 @@ LVal: LVal = {
 }
 
 // PrimaryExp -> '(' Exp ')' | LVal | Number
+// TODO: add type get
 PrimaryExp: Exp = {
     "(" <exp: Exp> ")" => {
         exp
@@ -249,16 +263,12 @@ PrimaryExp: Exp = {
     <lval: LVal> => {
         Exp {
             kind: ExpKind::LVal(lval),
-            ty: Some(Type::Int),
+            ty: None,
         }
     },
     <number: Number> => {
-        Exp {
-            kind: ExpKind::Const(number),
-            ty: Some(Type::Int),
-        }
-        // Exp::const_(number)
-    },
+        Exp::const_(number)
+    },  
 }
 
 // Number -> IntConst | floatConst
