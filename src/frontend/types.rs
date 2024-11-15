@@ -24,6 +24,8 @@ pub enum TypeKind {
     Float,
     // The array type, with the element type and the length.
     Array(Type, usize),
+    // The pointer type, a better way to address array decay.
+    Pointer(Type),
     // The function type, with params and return type.
     Func(Vec<Type>, Type),
 }
@@ -54,6 +56,7 @@ impl fmt::Display for Type {
             TypeKind::Int => write!(f, "int"),
             TypeKind::Float => write!(f, "float"),
             TypeKind::Array(t, len) => write!(f, "{}[{}]", t, len),
+            TypeKind::Pointer(t) => write!(f, "{}*", t),
             TypeKind::Func(params, ret) => write!(
                 f,
                 "{}({})",
@@ -111,6 +114,9 @@ impl Type {
     // Create a new array type.
     pub fn array(t: Type, len: usize) -> Self { Self::make(TypeKind::Array(t, len)) }
 
+    // Create a new pointer type.
+    pub fn pointer(t: Type) -> Self { Self::make(TypeKind::Pointer(t)) }
+
     // Create a new function type.
     pub fn func(params: Vec<Type>, ret: Type) -> Self { Self::make(TypeKind::Func(params, ret)) }
 
@@ -128,6 +134,18 @@ impl Type {
 
     // Check if the type is an array type.
     pub fn is_array(&self) -> bool { matches!(self.kind(), TypeKind::Array(_, _)) }
+
+    // Check if the type is a pointer type.
+    pub fn is_pointer(&self) -> bool { matches!(self.kind(), TypeKind::Pointer(_)) }
+
+    // pub fn is_compatible_with(&self, other: &Type) -> bool {
+    //     match (self.kind(), other.kind()) {
+    //         (TypeKind::Array(t1, len1), TypeKind::Array(t2, len2)) => {
+    //             t1 == t2 && (*len1 == 0 || *len1 == *len2)
+    //         }
+    //         _ => self == other
+    //     }
+    // }
 
     // XXX: Maybe we should add a `is_func` method here.
     // XXX: Maybe we should add a func to get all the dimensions of an array type.
@@ -166,6 +184,7 @@ impl Type {
             TypeKind::Int => 4,
             TypeKind::Float => 4,
             TypeKind::Array(t, len) => t.bytewidth() * len,
+            TypeKind::Pointer(_) => unreachable!(),
             TypeKind::Func(_, _) => unreachable!(),
         }
     }
@@ -182,6 +201,7 @@ mod tests {
         assert_eq!(Type::int().to_string(), "int");
         assert_eq!(Type::float().to_string(), "float");
         assert_eq!(Type::array(Type::int(), 10).to_string(), "int[10]");
+        assert_eq!(Type::pointer(Type::int()).to_string(), "int*");
         assert_eq!(
             Type::func(vec![Type::int(), Type::float()], Type::void()).to_string(),
             "void(int, float)"

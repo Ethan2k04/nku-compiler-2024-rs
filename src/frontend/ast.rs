@@ -613,8 +613,19 @@ impl Item {
                 // Insert the function parameters into the scope
                 let mut param_tys = Vec::new();
                 for param in params.iter() {
-                    param_tys.push(param.ty.clone());
-                    symtable.insert(param.ident.clone(), SymbolEntry::from_ty(param.ty.clone()));
+                    let ty = if let Some(ref indices) = param.dims {
+                        let mut ty = param.ty.clone();
+                        for dim in indices.iter().rev() {
+                            let dim = dim.try_fold(symtable).expect("const expr expected");
+                            ty = Type::array(ty, dim.unwrap_int() as usize);
+                        }
+                        ty = Type::pointer(ty);
+                        ty
+                    } else {
+                        param.ty.clone()
+                    };
+                    param_tys.push(ty.clone());
+                    symtable.insert(param.ident.clone(), SymbolEntry::from_ty(ty));
                 }
 
                 let func_ty = Type::func(param_tys, ret_ty.clone());
@@ -792,6 +803,10 @@ impl Stmt {
                     match ty.kind() {
                         Tk::Array(inner_ty, _) => {
                             // 更新 ty 为数组的元素类型
+                            ty = inner_ty;
+                        },
+                        Tk::Pointer(inner_ty) => {
+                            // 更新 ty 为指针的元素类型
                             ty = inner_ty;
                         },
                         _ => {
@@ -980,10 +995,31 @@ impl Exp {
 
                 // Type check the arguments
                 let args = args
-                    .into_iter()
-                    .zip(param_tys)
-                    .map(|(arg, ty)| arg.type_check(Some(ty), symtable))
-                    .collect();
+                .into_iter()
+                .zip(param_tys)
+                .map(|(arg, ty)| arg.type_check(Some(ty), symtable))
+                .collect();
+
+                // // Type check the arguments
+                // let args = args
+                //     .into_iter()
+                //     .zip(param_tys)
+                //     .map(|(arg, expected_ty)| {
+                //         let mut arg = arg.type_check(None, symtable);
+                        
+                //         // 特殊处理数组类型
+                //         if let (Tk::Array(exp_elem_ty, exp_len), Tk::Array(arg_elem_ty, _)) = 
+                //             (expected_ty.kind(), arg.ty().kind()) {
+                //             if exp_elem_ty == arg_elem_ty && exp_len == &0 {
+                //                 // 允许任意长度的数组转换为长度为0的数组（可变长度）
+                //                 return arg;
+                //             }
+                //         }
+                        
+                //         // 其他情况进行普通类型检查
+                //         arg.type_check(Some(expected_ty), symtable)
+                //     })
+                //     .collect();
 
                 // Create the function call expression
                 Exp {
@@ -1005,6 +1041,9 @@ impl Exp {
                 for _ in indices.iter() {
                     match ty.kind() {
                         Tk::Array(inner_ty, _) => {
+                            ty = inner_ty;
+                        },
+                        Tk::Pointer(inner_ty) => {
                             ty = inner_ty;
                         },
                         _ => {
@@ -1127,11 +1166,12 @@ impl Exp {
 
         // Coerce the expression to the expected type if needed
         if let Some(ty) = expect {
-            if ty.is_int() || ty.is_bool() || ty.is_float() {
+            if ty.is_int() || ty.is_bool() || ty.is_float() || ty.is_pointer() {
                 match ty.kind() {
                     Tk::Bool => exp = Exp::coercion(exp, Type::bool()),
                     Tk::Int => exp = Exp::coercion(exp, Type::int()),
                     Tk::Float => exp = Exp::coercion(exp, Type::float()),
+                    Tk::Pointer(..) => exp = Exp::coercion(exp, ty.clone()),
                     Tk::Array(..) | Tk::Func(..) | Tk::Void => {
                         unreachable!()
                     }
@@ -1254,7 +1294,7 @@ impl Exp {
                         };
                         Some(ComptimeVal::float(exp))
                     }
-                    Tk::Void | Tk::Func(..) | Tk::Array(..) => {
+                    Tk::Void | Tk::Func(..) | Tk::Array(..) | Tk::Pointer(..) => {
                         panic!("unsupported type coercion")
                     }
                 }

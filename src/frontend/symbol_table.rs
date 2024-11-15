@@ -1,5 +1,6 @@
 //! Symbol table for the frontend.
 use std::collections::HashMap;
+use std::vec;
 
 use super::ast::*;
 use super::types::{Type, TypeKind as Tk};
@@ -87,5 +88,20 @@ impl SymbolTable {
     /// Register SysY library functions to the symbol table.
     pub fn register_sysylib(&mut self) {
         // TODO: Register SysY library functions to the symbol table
+        assert_eq!(self.stack.len(), 1);
+
+        self.insert("getint", SymbolEntry::from_ty(Type::func(vec![], Type::int())));
+        self.insert("getch", SymbolEntry::from_ty(Type::func(vec![], Type::int())));
+        self.insert("getfloat", SymbolEntry::from_ty(Type::func(vec![], Type::float())));
+        self.insert("getarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::int())], Type::int())));
+        self.insert("getfarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::float())], Type::float())));
+        self.insert("putint", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
+        self.insert("putch", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
+        self.insert("putfloat", SymbolEntry::from_ty(Type::func(vec![Type::float()], Type::void())));
+        self.insert("putarray", SymbolEntry::from_ty(Type::func(vec![Type::int(), Type::pointer(Type::int())], Type::void())));
+        self.insert("putfarray", SymbolEntry::from_ty(Type::func(vec![Type::float(), Type::pointer(Type::float())], Type::void())));
+
+        self.insert("starttime", SymbolEntry::from_ty(Type::func(vec![], Type::void())));
+        self.insert("stoptime", SymbolEntry::from_ty(Type::func(vec![], Type::void())));
     }
 }

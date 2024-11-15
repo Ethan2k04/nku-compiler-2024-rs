@@ -15,7 +15,7 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
-    let input = read_to_string("src/test.sy")?;
+    let input = read_to_string(Cli::parse().input)?;
     let parser = SysYParser::new();
     let mut ast = parser.parse(&input).unwrap();
     // println!("{:#?}", ast);
@@ -36,6 +36,7 @@ fn main() -> Result<()> {
         "=".repeat(12)
     );
 
+    println!("{:#?}", ast);
     println!("{}", ast);
 
     Ok(())
