@@ -255,7 +255,7 @@ LVal: LVal = {
 }
 
 // PrimaryExp -> '(' Exp ')' | LVal | Number
-// TODO: add type get
+// TODO✔: add type get
 PrimaryExp: Exp = {
     "(" <exp: Exp> ")" => {
         exp

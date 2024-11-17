@@ -650,7 +650,7 @@ impl ConstDecl {
     pub fn type_check(&mut self, symtable: &mut SymbolTable) {
         let mut new_defs = Vec::new();
         for mut def in self.defs.drain(..) {
-            // TODO: array type checking
+            // TODO✔: array type checking
             let mut array_shape = def
                 .dims
                 .drain(..)
@@ -699,7 +699,7 @@ impl VarDecl {
     pub fn type_check(&mut self, symtable: &mut SymbolTable) {
         let mut new_defs = Vec::new();
         for mut def in self.defs.drain(..) {
-            // TODO: array type checking
+            // TODO✔: array type checking
             let mut array_shape = def
                 .dims
                 .drain(..)
@@ -727,7 +727,7 @@ impl VarDecl {
                     }
                 })
                 .unwrap_or_else(|| {
-                    // TODO: assign undef
+                    // TODO✔: assign undef
                     Exp::const_(ComptimeVal::undef(ty.clone()))
                 });
 
@@ -869,6 +869,7 @@ impl Stmt {
     }
 }
 
+// TODO: Add judegment for if a value is out of i32 range
 impl Exp {
     /// Get the type of the expression.
     pub fn ty(&self) -> &Type { self.ty.as_ref().unwrap() }
@@ -1225,7 +1226,7 @@ impl Exp {
             },
             ExpKind::FuncCall(_) => None,
             ExpKind::LVal(LVal { ident, indices }) => {
-                // TODO: what if there are indices?
+                // TODO✔: what if there are indices? 
                 let entry = symtable.lookup(ident).unwrap();
                 let val = entry.comptime.as_ref()?.clone();
 

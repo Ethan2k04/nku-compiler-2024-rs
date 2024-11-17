@@ -10,6 +10,8 @@ use super::value::Value;
 use crate::infra::linked_list::LinkedListNode;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr};
 
+// TODO: Add support for float and array types. A LOT OF WORK to do here. >_<
+
 #[derive(Debug)]
 pub enum IntCmpCond {
     Eq,
