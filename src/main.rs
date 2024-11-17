@@ -1,43 +1,71 @@
-mod frontend;
+use std::path::Path;
+use std::process::Command as SysCommand;
 
-use std::fs::read_to_string;
-use std::io::Result;
-use frontend::SysYParser;
-use clap::Parser;
+use clap::{Arg, ArgMatches, Command};
+use compiler_in_rust::frontend::{irgen, preprocess, SysYParser};
 
-#[derive(Parser)]
-#[command(name = "NKUCC Compiler")]
-#[command(about = "A simple compiler using NKUCC frontend", long_about = None)]
-struct Cli {
-    /// 输入的 SysY 文件路径
-    #[arg(short, long, value_name = "FILE")]
-    input: String,
+fn parse_arguments() -> ArgMatches {
+    Command::new("nkucc")
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .required(true)
+                .help("The output assembly"),
+        )
+        .arg(Arg::new("source").required(true).help("The source code"))
+        .arg(
+            Arg::new("s_flag")
+                .short('S')
+                .action(clap::ArgAction::Count)
+                .help("Output an assembly file"),
+        )
+        .arg(
+            Arg::new("opt")
+                .short('O')
+                .help("Optimization level")
+                .default_value("0"),
+        )
+        .arg(
+            Arg::new("emit-ast")
+                .long("emit-ast")
+                .help("Emit the AST to the specified file"),
+        )
+        .arg(
+            Arg::new("emit-llvm-ir")
+                .long("emit-llvm-ir")
+                .help("Emit the IR to the specified file"),
+        )
+        .get_matches()
 }
 
-fn main() -> Result<()> {
-    let input = read_to_string(Cli::parse().input)?;
-    let parser = SysYParser::new();
-    let mut ast = parser.parse(&input).unwrap();
-    // println!("{:#?}", ast);
-    println!(
-        "{} {} {}",
-        "=".repeat(12),
-        "Abstract Syntax Tree",
-        "=".repeat(12)
-    );
-    println!("{:#?}", ast);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Hello, NKUCC!");
+
+    let matches = parse_arguments();
+
+    // Extract arguments
+    let output = matches.get_one::<String>("output");
+    let emit_llvm_ir = matches.get_one::<String>("emit-llvm-ir");
+    let opt_level = matches.get_one::<String>("opt").unwrap();
+    let source = matches.get_one::<String>("source").unwrap();
+    let emit_assembly = matches.get_count("s_flag") > 0;
+
+    // Validate source file
+    let src = std::fs::read_to_string(source)?;
+
+    let src = preprocess(&src);
+
+    let mut ast = SysYParser::new().parse(&src).unwrap();
 
     ast.type_check();
 
-    println!(
-        "{} {} {}",
-        "=".repeat(12),
-        "After type check",
-        "=".repeat(12)
-    );
-
     println!("{:#?}", ast);
-    println!("{}", ast);
+
+    let ir = irgen(&ast, 8);
+
+    if let Some(ir_file) = emit_llvm_ir {
+        std::fs::write(ir_file, ir.to_string()).unwrap();
+    }
 
     Ok(())
 }

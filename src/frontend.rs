@@ -1,11 +1,14 @@
-mod parse;
-mod ast;
-mod types;
-mod symbol_table;
-mod irgen;
+// frontend.rs
+pub mod ast;
+pub mod irgen;
+pub mod parse;
+pub mod preprocess;
+pub mod symbol_table;
+pub mod types;
 
-pub use parse::*;
 pub use ast::*;
+pub use irgen::*;
+pub use parse::*;
+pub use preprocess::*;
 pub use types::*;
 pub use symbol_table::*;
-pub use irgen::*;
