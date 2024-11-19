@@ -7,6 +7,7 @@ use super::def_use::{Usable, User};
 use super::func::Func;
 use super::inst::Inst;
 use super::ty::Ty;
+use crate::frontend::ComptimeVal;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr, Idx};
 
 pub enum ConstantValue {
@@ -70,12 +71,33 @@ impl ConstantValue {
         ConstantValue::Float32 { ty: f32, value }
     }
 
+    pub fn array(ctx: &mut Context, values: Vec<ComptimeVal>) -> ConstantValue {
+        let element_ty = Ty::i32(ctx);
+        let array_ty = Ty::array(ctx, element_ty, values.len());
+        let elems = values
+            .into_iter()
+            .map(|v| ConstantValue::i32(ctx, v.unwrap_int() as i32))
+            .collect();
+
+        ConstantValue::Array {
+            ty: array_ty,
+            elems,
+        }
+    }
+
+    pub fn zero(ctx: &mut Context) -> ConstantValue {
+        let i32 = Ty::i32(ctx);
+        ConstantValue::AggregateZero { ty: i32 }
+    }
+
     pub fn global_ref(ctx: &mut Context, name: String, value_ty: Ty) -> ConstantValue {
         let ty = Ty::ptr(ctx);
         ConstantValue::GlobalRef { ty, name, value_ty }
     }
 
-    pub fn undef(ctx: &mut Context, ty: Ty) -> ConstantValue { ConstantValue::Undef { ty } }
+    pub fn undef(ctx: &mut Context, ty: Ty) -> ConstantValue {
+        ConstantValue::Undef { ty }
+    }
 
     pub fn to_string(&self, ctx: &Context, typed: bool) -> String {
         let mut s = if typed {
@@ -215,6 +237,28 @@ impl Value {
         Self::new(ctx, ValueKind::Constant { value })
     }
 
+    pub fn array(ctx: &mut Context, values: Vec<ComptimeVal>) -> Self {
+        let element_ty = Ty::i32(ctx);
+        let array_ty = Ty::array(ctx, element_ty, values.len());
+        let elems = values
+            .into_iter()
+            .map(|v| ConstantValue::i32(ctx, v.unwrap_int() as i32))
+            .collect();
+        let value = ConstantValue::Array {
+            ty: array_ty,
+            elems,
+        };
+
+        Self::new(ctx, ValueKind::Constant { value })
+    }
+
+    pub fn zero(ctx: &mut Context) -> Self {
+        let i32 = Ty::i32(ctx);
+        let value = ConstantValue::AggregateZero { ty: i32 };
+
+        Self::new(ctx, ValueKind::Constant { value })
+    }
+
     pub fn global_ref(ctx: &mut Context, name: String, value_ty: Ty) -> Self {
         let value = ConstantValue::global_ref(ctx, name, value_ty);
         Self::new(ctx, ValueKind::Constant { value })
@@ -223,6 +267,18 @@ impl Value {
     pub fn undef(ctx: &mut Context, ty: Ty) -> Self {
         let value = ConstantValue::undef(ctx, ty);
         Self::new(ctx, ValueKind::Constant { value })
+    }
+
+    pub fn is_positive(&self, ctx: &Context) -> Option<bool> {
+        if let ValueKind::Constant { ref value } = self.try_deref(ctx).unwrap().kind {
+            match value {
+                ConstantValue::Int8 { value, .. } => Some(*value > 0),
+                ConstantValue::Int32 { value, .. } => Some(*value > 0),
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -239,9 +295,13 @@ impl Arena<Value> for Context {
         Value(self.values.alloc_with(|ptr| f(Value(ptr))))
     }
 
-    fn try_dealloc(&mut self, ptr: Value) -> Option<ValueData> { self.values.try_dealloc(ptr.0) }
+    fn try_dealloc(&mut self, ptr: Value) -> Option<ValueData> {
+        self.values.try_dealloc(ptr.0)
+    }
 
-    fn try_deref(&self, ptr: Value) -> Option<&ValueData> { self.values.try_deref(ptr.0) }
+    fn try_deref(&self, ptr: Value) -> Option<&ValueData> {
+        self.values.try_deref(ptr.0)
+    }
 
     fn try_deref_mut(&mut self, ptr: Value) -> Option<&mut ValueData> {
         self.values.try_deref_mut(ptr.0)

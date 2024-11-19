@@ -1,35 +1,14 @@
 //! IR generation from AST.
 
 use super::ast::{
-    self,
-    BinaryOp,
-    BlockItem,
-    CompUnit,
-    ComptimeVal as Cv,
-    ConstDecl,
-    ConstDef,
-    Decl,
-    Exp,
-    ExpKind,
-    ExpStmt,
-    FuncDef,
-    FuncFParam,
-    Item,
-    ReturnStmt,
-    Stmt,
-    VarDecl,
-    VarDef,
-    AssignStmt,
-    FuncCall,
-    LVal,
-    UnaryOp,
+    self, AssignStmt, BinaryOp, BlockItem, CompUnit, ComptimeVal as Cv, ConstDecl, ConstDef, Decl,
+    Exp, ExpKind, ExpStmt, FuncCall, FuncDef, FuncFParam, Item, LVal, ReturnStmt, Stmt, UnaryOp,
+    VarDecl, VarDef,
 };
-use super::types::{Type, TypeKind as Tk};
 use super::symbol_table::{SymbolEntry, SymbolTable};
+use super::types::{Type, TypeKind as Tk};
 use crate::infra::linked_list::LinkedListContainer;
 use crate::ir::{self, Block, ConstantValue, Context, Func, Global, Inst, TargetInfo, Ty, Value};
-
-
 
 /// Generate IR from the AST.
 pub fn irgen(ast: &CompUnit, pointer_width: u8) -> Context {
@@ -93,7 +72,9 @@ pub struct IrGenContext {
 
 impl IrGenContext {
     /// Consume the context and return the generated IR.
-    pub fn finish(self) -> Context { self.ctx }
+    pub fn finish(self) -> Context {
+        self.ctx
+    }
 
     /// Generate a new global constant value in ir given a comptime value in AST.
     fn gen_global_comptime(&mut self, val: &Cv) -> ConstantValue {
@@ -101,10 +82,10 @@ impl IrGenContext {
             Cv::Bool(a) => ConstantValue::i1(&mut self.ctx, *a),
             Cv::Int(a) => ConstantValue::i32(&mut self.ctx, *a as i32),
             Cv::Float(a) => ConstantValue::f32(&mut self.ctx, *a),
-            // TODO: Implement list
-            Cv::List(vals) => todo!(),
-            // TODO: Implement zero
-            Cv::Zero(..) => todo!(),
+            // TODO✔: Implement list
+            Cv::List(vals) => ConstantValue::array(&mut self.ctx, (*vals).clone()),
+            // TODO✔: Implement zero
+            Cv::Zero(..) => ConstantValue::zero(&mut self.ctx),
             Cv::Undef(ty) => {
                 let ir_ty = self.gen_type(ty);
                 ConstantValue::undef(&mut self.ctx, ir_ty)
@@ -118,10 +99,10 @@ impl IrGenContext {
             Cv::Bool(a) => Value::i1(&mut self.ctx, *a),
             Cv::Int(a) => Value::i32(&mut self.ctx, *a as i32),
             Cv::Float(a) => Value::f32(&mut self.ctx, *a),
-            // TODO: Implement list
-            Cv::List(vals) => todo!(),
-            // TODO: Implement zero
-            Cv::Zero(..) => todo!(),
+            // TODO✔: Implement list
+            Cv::List(vals) => Value::array(&mut self.ctx, (*vals).clone()),
+            // TODO✔: Implement zero
+            Cv::Zero(..) => Value::zero(&mut self.ctx),
             Cv::Undef(ty) => {
                 let ir_ty = self.gen_type(ty);
                 Value::undef(&mut self.ctx, ir_ty)
@@ -137,10 +118,10 @@ impl IrGenContext {
             Tk::Int => Ty::i32(&mut self.ctx),
             Tk::Float => Ty::f32(&mut self.ctx),
             Tk::Pointer(..) => Ty::ptr(&mut self.ctx),
-            Tk::Array (base, size) => {
+            Tk::Array(base, size) => {
                 let ir_base = self.gen_type(base);
                 Ty::array(&mut self.ctx, ir_base, *size)
-            },
+            }
             Tk::Func(..) => unreachable!("function type should be handled separately"),
         }
     }
@@ -166,7 +147,7 @@ impl IrGenContext {
                 | Bo::Le
                 | Bo::Ge
                 | Bo::Eq
-                | Bo::Ne  => {
+                | Bo::Ne => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -175,38 +156,40 @@ impl IrGenContext {
                     let inst = match op {
                         // Generate add instruction
                         Bo::Add => Inst::add(&mut self.ctx, lhs, rhs, lhs_ty),
-                        // TODO: Implement other binary operations
+                        // TODO✔: Implement other binary operations
                         // XXX: Not sure if we need to implement all of them
-                        Bo::Sub => {
-                            todo!("implement sub");
-                        }
-                        Bo::Mul => {
-                            todo!("implement mul");
-                        }
+                        Bo::Sub => Inst::sub(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Mul => Inst::mul(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::Div => {
-                            todo!("implement div");
+                            let inst = if let Some(is_positive) = lhs.is_positive(&self.ctx) {
+                                if is_positive && rhs.is_positive(&self.ctx).unwrap_or(true) {
+                                    Inst::udiv(&mut self.ctx, lhs, rhs, lhs_ty)
+                                } else {
+                                    Inst::sdiv(&mut self.ctx, lhs, rhs, lhs_ty)
+                                }
+                            } else {
+                                Inst::sdiv(&mut self.ctx, lhs, rhs, lhs_ty)
+                            };
+                            inst
                         }
                         Bo::Mod => {
-                            todo!("implement mod");
+                            let inst = if let Some(is_positive) = lhs.is_positive(&self.ctx) {
+                                if is_positive && rhs.is_positive(&self.ctx).unwrap_or(true) {
+                                    Inst::urem(&mut self.ctx, lhs, rhs, lhs_ty)
+                                } else {
+                                    Inst::srem(&mut self.ctx, lhs, rhs, lhs_ty)
+                                }
+                            } else {
+                                Inst::srem(&mut self.ctx, lhs, rhs, lhs_ty)
+                            };
+                            inst
                         }
-                        Bo::Eq => {
-                            todo!("implement eq");
-                        }
-                        Bo::Ne => {
-                            todo!("implement ne");
-                        }
-                        Bo::Lt => {
-                            todo!("implement lt");
-                        }
-                        Bo::Le => {
-                            todo!("implement le");
-                        }
-                        Bo::Gt => {
-                            todo!("implement gt");
-                        }
-                        Bo::Ge => {
-                            todo!("implement ge");
-                        }
+                        Bo::Eq => Inst::eq(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Ne => Inst::ne(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Lt => Inst::lt(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Le => Inst::le(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Gt => Inst::gt(&mut self.ctx, lhs, rhs, lhs_ty),
+                        Bo::Ge => Inst::ge(&mut self.ctx, lhs, rhs, lhs_ty),
                         Bo::And | Bo::Or => unreachable!(),
                     };
 
@@ -233,7 +216,7 @@ impl IrGenContext {
                 }
             },
             // LValues -> Get the value
-            ExpKind::LVal(LVal { ident, ..}) => {
+            ExpKind::LVal(LVal { ident, .. }) => {
                 // TODO: Add support for array indexing
                 // Look up the symbol in the symbol table to get the IR value
                 let entry = self.symtable.lookup(ident).unwrap();
@@ -306,14 +289,13 @@ impl IrGen for CompUnit {
     }
 }
 
-
 impl IrGen for Item {
     // Generate IR for an item.
     fn irgen(&self, irgen: &mut IrGenContext) {
         match self {
             Item::Decl(decl) => match decl {
                 Decl::ConstDecl(ConstDecl { defs, .. }) => {
-                    for ConstDef {ident, init, ..} in defs {
+                    for ConstDef { ident, init, .. } in defs {
                         // Try to fold the initializer to get the constant value
                         // Note for const declaration, the initializer must be a constant
                         let comptime = init
@@ -335,7 +317,7 @@ impl IrGen for Item {
                                 ir_value: Some(IrGenResult::Global(slot)),
                             },
                         );
-                    }                    
+                    }
                 }
                 Decl::VarDecl(VarDecl { defs, .. }) => {
                     for VarDef { ident, init, .. } in defs {
@@ -370,7 +352,6 @@ impl IrGen for Item {
         }
     }
 }
-
 
 impl IrGen for FuncDef {
     fn irgen(&self, irgen: &mut IrGenContext) {
@@ -575,7 +556,10 @@ impl IrGen for Stmt {
         let curr_block = irgen.curr_block.unwrap();
 
         match self {
-            Stmt::Assign(AssignStmt { lval: LVal { ident, .. }, exp }) => {
+            Stmt::Assign(AssignStmt {
+                lval: LVal { ident, .. },
+                exp,
+            }) => {
                 // XXX: Add support for array indexing, Not sure if we need to implement it
                 let entry = irgen.symtable.lookup(ident).unwrap();
                 let ir_value = entry.ir_value.unwrap();

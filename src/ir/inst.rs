@@ -123,7 +123,9 @@ enum OperandEntry<T: Usable> {
 }
 
 impl<T: Usable> Default for OperandEntry<T> {
-    fn default() -> Self { Self::Vacant { next_vacant: None } }
+    fn default() -> Self {
+        Self::Vacant { next_vacant: None }
+    }
 }
 
 /// A list of operands.
@@ -312,7 +314,9 @@ impl Inst {
     }
 
     /// Create a new `phi` instruction.
-    pub fn phi(ctx: &mut Context, ty: Ty) -> Self { Self::new(ctx, InstKind::Phi, ty) }
+    pub fn phi(ctx: &mut Context, ty: Ty) -> Self {
+        Self::new(ctx, InstKind::Phi, ty)
+    }
 
     /// Create a new `load` instruction.
     pub fn load(ctx: &mut Context, ptr: Value, ty: Ty) -> Self {
@@ -384,6 +388,186 @@ impl Inst {
     }
 
     // TODO: Implement constructors for other instructions.
+
+    /// Create a new `sub` instruction.
+    pub fn sub(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::Sub,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `mul` instruction.
+    pub fn mul(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::Mul,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `sdiv` instruction.
+    pub fn sdiv(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::SDiv,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `udiv` instruction.
+    pub fn udiv(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::UDiv,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `srem` instruction.
+    pub fn srem(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::SRem,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `urem` instruction.
+    pub fn urem(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::URem,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `eq` instruction.
+    pub fn eq(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: IntCmpCond::Eq,
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `ne` instruction.
+    pub fn ne(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: IntCmpCond::Ne,
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `lt` instruction.
+    pub fn lt(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: IntCmpCond::Slt,
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `le` instruction.
+    pub fn le(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: IntCmpCond::Sle,
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `gt` instruction.
+    pub fn gt(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: IntCmpCond::Slt,
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, rhs);
+        inst.add_operand(ctx, lhs);
+        inst
+    }
+
+    /// Create a new `ge` instruction.
+    pub fn ge(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::ICmp {
+                    cond: IntCmpCond::Sle,
+                },
+            },
+            ty,
+        );
+        inst.add_operand(ctx, rhs);
+        inst.add_operand(ctx, lhs);
+        inst
+    }
 
     /// Create an operand and add it to the operand list.
     fn add_operand(self, ctx: &mut Context, operand: Value) {
@@ -508,16 +692,24 @@ impl Inst {
     }
 
     /// Get a displayable instance of the instruction.
-    pub fn display(self, ctx: &Context) -> DisplayInst { DisplayInst { ctx, inst: self } }
+    pub fn display(self, ctx: &Context) -> DisplayInst {
+        DisplayInst { ctx, inst: self }
+    }
 
     /// Get the result of the instruction.
-    pub fn result(self, ctx: &Context) -> Option<Value> { self.deref(ctx).result }
+    pub fn result(self, ctx: &Context) -> Option<Value> {
+        self.deref(ctx).result
+    }
 
     /// Get the kind of the instruction.
-    pub fn kind(self, ctx: &Context) -> &InstKind { &self.deref(ctx).kind }
+    pub fn kind(self, ctx: &Context) -> &InstKind {
+        &self.deref(ctx).kind
+    }
 
     /// Check if this is a phi node.
-    pub fn is_phi(self, ctx: &Context) -> bool { matches!(self.deref(ctx).kind, InstKind::Phi) }
+    pub fn is_phi(self, ctx: &Context) -> bool {
+        matches!(self.deref(ctx).kind, InstKind::Phi)
+    }
 }
 
 pub struct DisplayInst<'ctx> {
@@ -618,9 +810,13 @@ impl Arena<Inst> for Context {
         Inst(self.insts.alloc_with(|ptr| f(Inst(ptr))))
     }
 
-    fn try_dealloc(&mut self, ptr: Inst) -> Option<InstData> { self.insts.try_dealloc(ptr.0) }
+    fn try_dealloc(&mut self, ptr: Inst) -> Option<InstData> {
+        self.insts.try_dealloc(ptr.0)
+    }
 
-    fn try_deref(&self, ptr: Inst) -> Option<&InstData> { self.insts.try_deref(ptr.0) }
+    fn try_deref(&self, ptr: Inst) -> Option<&InstData> {
+        self.insts.try_deref(ptr.0)
+    }
 
     fn try_deref_mut(&mut self, ptr: Inst) -> Option<&mut InstData> {
         self.insts.try_deref_mut(ptr.0)
@@ -631,15 +827,25 @@ impl LinkedListNode for Inst {
     type Container = Block;
     type Ctx = Context;
 
-    fn next(self, ctx: &Self::Ctx) -> Option<Self> { self.deref(ctx).next }
+    fn next(self, ctx: &Self::Ctx) -> Option<Self> {
+        self.deref(ctx).next
+    }
 
-    fn prev(self, ctx: &Self::Ctx) -> Option<Self> { self.deref(ctx).prev }
+    fn prev(self, ctx: &Self::Ctx) -> Option<Self> {
+        self.deref(ctx).prev
+    }
 
-    fn container(self, ctx: &Self::Ctx) -> Option<Self::Container> { self.deref(ctx).container }
+    fn container(self, ctx: &Self::Ctx) -> Option<Self::Container> {
+        self.deref(ctx).container
+    }
 
-    fn set_next(self, ctx: &mut Self::Ctx, next: Option<Self>) { self.deref_mut(ctx).next = next; }
+    fn set_next(self, ctx: &mut Self::Ctx, next: Option<Self>) {
+        self.deref_mut(ctx).next = next;
+    }
 
-    fn set_prev(self, ctx: &mut Self::Ctx, prev: Option<Self>) { self.deref_mut(ctx).prev = prev; }
+    fn set_prev(self, ctx: &mut Self::Ctx, prev: Option<Self>) {
+        self.deref_mut(ctx).prev = prev;
+    }
 
     fn set_container(self, ctx: &mut Self::Ctx, container: Option<Self::Container>) {
         self.deref_mut(ctx).container = container;
