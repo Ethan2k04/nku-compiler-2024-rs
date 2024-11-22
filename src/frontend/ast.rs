@@ -957,7 +957,7 @@ impl Exp {
                         let ty = exp.ty();
                         if ty.is_bool() {
                             // do nothing
-                        } if ty.is_int() {
+                        } else if ty.is_int() {
                             exp = Exp {
                                 kind: ExpKind::Binary(BinaryOp::Ne, Box::new(exp), Box::new(Exp::const_(ComptimeVal::int(0)))),
                                 ty: Some(Type::bool()),
@@ -965,6 +965,11 @@ impl Exp {
                         } else if ty.is_float() {
                             exp = Exp {
                                 kind: ExpKind::Binary(BinaryOp::Ne, Box::new(exp), Box::new(Exp::const_(ComptimeVal::float(0.0)))),
+                                ty: Some(Type::bool()),
+                            }
+                        } else if ty.is_bool() {
+                            exp = Exp {
+                                kind: ExpKind::Unary(UnaryOp::Not, Box::new(exp)),
                                 ty: Some(Type::bool()),
                             }
                         } else {

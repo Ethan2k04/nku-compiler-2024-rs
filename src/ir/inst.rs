@@ -9,7 +9,7 @@ use super::ty::Ty;
 use super::value::Value;
 use crate::infra::linked_list::LinkedListNode;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr};
-
+use crate::ir::TyData;
 // TODO: Add support for float and array types. A LOT OF WORK to do here. >_<
 
 #[derive(Debug)]
@@ -20,6 +20,18 @@ pub enum IntCmpCond {
     Sle,
 }
 
+#[derive(Debug)]
+pub enum FloatCmpCond {
+    UEq, // Unordered or equal
+    UNe, // Unordered or not equal
+    ULt, // Unordered or less than
+    ULe, // Unordered or less than or equal
+    OEq, // Ordered and equal
+    OLt, // Ordered and less than
+    OLe, // Ordered and less than or equal
+    ONE, // Ordered and not equal
+}
+
 impl fmt::Display for IntCmpCond {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -27,6 +39,21 @@ impl fmt::Display for IntCmpCond {
             IntCmpCond::Ne => write!(f, "ne"),
             IntCmpCond::Slt => write!(f, "slt"),
             IntCmpCond::Sle => write!(f, "sle"),
+        }
+    }
+}
+
+impl fmt::Display for FloatCmpCond {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FloatCmpCond::UEq => write!(f, "ueq"),
+            FloatCmpCond::UNe => write!(f, "une"),
+            FloatCmpCond::ULt => write!(f, "ult"),
+            FloatCmpCond::ULe => write!(f, "ule"),
+            FloatCmpCond::OEq => write!(f, "oeq"),
+            FloatCmpCond::ONE => write!(f, "one"),
+            FloatCmpCond::OLe => write!(f, "olt"),
+            FloatCmpCond::OLt => write!(f, "ole"),
         }
     }
 }
@@ -47,6 +74,16 @@ pub enum IntBinaryOp {
     Or,
     Xor,
     ICmp { cond: IntCmpCond },
+}
+
+#[derive(Debug)]
+pub enum FloatBinaryOp {
+    FAdd,
+    FSub,
+    FMul,
+    FDiv,
+    FRem,
+    FCmp { cond: FloatCmpCond },
 }
 
 impl fmt::Display for IntBinaryOp {
@@ -70,11 +107,26 @@ impl fmt::Display for IntBinaryOp {
     }
 }
 
+impl fmt::Display for FloatBinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FloatBinaryOp::FAdd => write!(f, "fadd"),
+            FloatBinaryOp::FSub => write!(f, "fsub"),
+            FloatBinaryOp::FMul => write!(f, "fmul"),
+            FloatBinaryOp::FDiv => write!(f, "fdiv"),
+            FloatBinaryOp::FRem => write!(f, "frem"),
+            FloatBinaryOp::FCmp { cond } => write!(f, "fcmp {}", cond),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum CastOp {
     Zext,
     Sext,
     Trunc,
+    SiToFp, // sint to float
+    FpToSi, // float to sint
 }
 
 impl fmt::Display for CastOp {
@@ -83,6 +135,8 @@ impl fmt::Display for CastOp {
             CastOp::Zext => write!(f, "zext"),
             CastOp::Sext => write!(f, "sext"),
             CastOp::Trunc => write!(f, "trunc"),
+            CastOp::SiToFp => write!(f, "sitofp"),
+            CastOp::FpToSi => write!(f, "fptosi"),
         }
     }
 }
@@ -99,12 +153,17 @@ pub enum InstKind {
     GetElementPtr {
         bound_ty: Ty,
     },
-    Call,
+    Call {
+        name: String
+    },
     Br,
     CondBr,
     Ret,
     IntBinary {
         op: IntBinaryOp,
+    },
+    FloatBinary {
+        op: FloatBinaryOp,
     },
     Cast {
         op: CastOp,
@@ -355,6 +414,121 @@ impl Inst {
         inst
     }
 
+    pub fn cast(ctx: &mut Context, op: CastOp, val: Value, to_ty: Ty) -> Self {
+        let from_ty = val.ty(ctx);
+        match op {
+            CastOp::Trunc => {
+                if !from_ty.is_int(ctx) || !to_ty.is_int(ctx) {
+                    panic!(
+                        "trunc only supports integer-like types, got {} and {}",
+                        from_ty.display(ctx),
+                        to_ty.display(ctx)
+                    );
+                }
+                if from_ty.bitwidth(ctx) <= to_ty.bitwidth(ctx) {
+                    panic!(
+                        "trunc requires source type ({}) to be larger than destination type ({})",
+                        from_ty.display(ctx),
+                        to_ty.display(ctx)
+                    );
+                }
+            }
+            CastOp::Zext | CastOp::Sext => {
+                if !from_ty.is_int(ctx) || !to_ty.is_int(ctx) {
+                    panic!(
+                        "{:?} only supports integer-like types, got {} and {}",
+                        op,
+                        from_ty.display(ctx),
+                        to_ty.display(ctx)
+                    );
+                }
+                if from_ty.bitwidth(ctx) >= to_ty.bitwidth(ctx) {
+                    panic!(
+                        "{:?} requires source type ({}) to be smaller than destination type ({})",
+                        op,
+                        from_ty.display(ctx),
+                        to_ty.display(ctx)
+                    );
+                }
+            }
+            CastOp::SiToFp => {
+                if !from_ty.is_int(ctx) || !to_ty.is_float(ctx) {
+                    panic!(
+                        "sitofp requires integer source type and float destination type, got {} and {}",
+                        from_ty.display(ctx),
+                        to_ty.display(ctx)
+                    );
+                }
+            }
+            CastOp::FpToSi => {
+                if !from_ty.is_float(ctx) || !to_ty.is_int(ctx) {
+                    panic!(
+                        "fptosi requires float source type and integer destination type, got {} and {}",
+                        from_ty.display(ctx),
+                        to_ty.display(ctx)
+                    );
+                }
+            }
+        }
+
+        let inst = Self::new(ctx, InstKind::Cast { op }, to_ty);
+        inst.add_operand(ctx, val);
+        inst
+    }
+
+    pub fn int_binary(ctx: &mut Context, lhs: Value, rhs: Value, op_ty: IntBinaryOp, ty: Ty) -> Self {
+        if !lhs.ty(ctx).is_int(ctx) || !rhs.ty(ctx).is_int(ctx) {
+            panic!(
+                "lhs and rhs must be integer-like types, got {} and {}",
+                lhs.ty(ctx).display(ctx),
+                rhs.ty(ctx).display(ctx)
+            );
+        }
+
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: op_ty,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    pub fn float_binary(ctx: &mut Context, lhs: Value, rhs: Value, op_ty: FloatBinaryOp, ty: Ty) -> Self {
+        if !lhs.ty(ctx).is_float(ctx) || !rhs.ty(ctx).is_float(ctx) {
+            panic!(
+                "lhs and rhs must be float-like types, got {} and {}",
+                lhs.ty(ctx).display(ctx),
+                rhs.ty(ctx).display(ctx)
+            );
+        }
+
+        let inst = Self::new(
+            ctx,
+            InstKind::FloatBinary {
+                op: op_ty,
+            },
+            ty,
+        );
+
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    pub fn call(ctx: &mut Context, name: String, args: Vec<Value>, ret_ty: Ty) -> Self {
+        // 创建call指令
+        let inst = Self::new(ctx, InstKind::Call { name }, ret_ty);
+        // 添加参数
+        for arg in args {
+            inst.add_operand(ctx, arg);
+        }
+        inst
+    }
+
     /// Create a new `ret` instruction.
     pub fn ret(ctx: &mut Context, val: Option<Value>) -> Self {
         let void = Ty::void(ctx);
@@ -520,6 +694,18 @@ impl Inst {
     pub fn is_phi(self, ctx: &Context) -> bool { matches!(self.deref(ctx).kind, InstKind::Phi) }
 }
 
+impl InstKind {
+    pub fn is_terminator(&self) -> bool {
+        matches!(self, InstKind::Ret | InstKind::Br | InstKind::CondBr)
+    }
+}
+
+impl Inst {
+    pub fn is_terminator(self, ctx: &Context) -> bool {
+        self.kind(ctx).is_terminator()
+    }
+}
+
 pub struct DisplayInst<'ctx> {
     ctx: &'ctx Context,
     inst: Inst,
@@ -581,6 +767,24 @@ impl fmt::Display for DisplayInst<'_> {
                     self.inst.operand(self.ctx, 1).display(self.ctx, false)
                 )?;
             }
+            InstKind::FloatBinary { op } => {
+                write!(
+                    f,
+                    "{} {}, {}",
+                    op,
+                    self.inst.operand(self.ctx, 0).display(self.ctx, true),
+                    self.inst.operand(self.ctx, 1).display(self.ctx, false)
+                )?;
+            }
+            InstKind::Cast { op } => {
+                write!(
+                    f,
+                    "{} {} to {}",
+                    op,
+                    self.inst.operand(self.ctx, 0).display(self.ctx, true),
+                    self.inst.result(self.ctx).unwrap().ty(self.ctx).display(self.ctx)
+                )?;
+            }
             InstKind::Ret => {
                 if let Some(val) = self.inst.operand_iter(self.ctx).next() {
                     write!(f, "ret {}", val.display(self.ctx, true))?;
@@ -593,6 +797,40 @@ impl fmt::Display for DisplayInst<'_> {
                     f,
                     "br label {}",
                     self.inst.successor(self.ctx, 0).name(self.ctx)
+                )?;
+            }
+            InstKind::Call { name } => {
+                if let Some(result) = self.inst.result(self.ctx) {
+                    write!(f, "call {} ", result.ty(self.ctx).display(self.ctx))?;
+                } else {
+                    write!(f, "call void")?;
+                }
+                write!(f, " @{}", name)?;
+                write!(f, "(")?;
+                let mut first = true;
+                for operand in self.inst.operand_iter(self.ctx) {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    first = false;
+                    write!(f, "{}", operand.display(self.ctx, true))?;
+                }
+                write!(f, ")")?;
+            }
+            InstKind::Br => {
+                write!(
+                    f,
+                    "br label %{}",
+                    self.inst.successor(self.ctx, 0).name(self.ctx)
+                )?;
+            }
+            InstKind::CondBr => {
+                write!(
+                    f,
+                    "br {}, label {}, label {}",
+                    self.inst.operand(self.ctx, 0).display(self.ctx, true),
+                    self.inst.successor(self.ctx, 0).name(self.ctx),
+                    self.inst.successor(self.ctx, 1).name(self.ctx)
                 )?;
             }
             _ => {

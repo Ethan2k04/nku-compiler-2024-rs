@@ -90,7 +90,14 @@ impl ConstantValue {
             ConstantValue::Int1 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int8 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int32 { value, .. } => s.push_str(&value.to_string()),
-            ConstantValue::Float32 { value, .. } => s.push_str(&value.to_string()),
+            ConstantValue::Float32 { value, .. } => {
+                // 确保浮点数总是带小数点
+                if value.fract() == 0.0 {
+                    s.push_str(&format!("{}.0", value));
+                } else {
+                    s.push_str(&value.to_string());
+                }
+            },
             ConstantValue::Array { elems, .. } => {
                 s.push('[');
                 for (i, elem) in elems.iter().enumerate() {

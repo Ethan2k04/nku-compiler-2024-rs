@@ -13,10 +13,16 @@ pub struct FuncData {
     name: String,
     params: Vec<Value>,
     ret_ty: Ty,
+    kind: FuncKind,
 
     head: Option<Block>,
     tail: Option<Block>,
-    // TODO: Distinguish `define` and `declare`.
+    // TODO✔: Distinguish `define` and `declare`.
+}
+
+pub enum FuncKind {
+    Define,
+    Declare,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -36,7 +42,24 @@ impl Func {
             ret_ty,
             head: None,
             tail: None,
+            kind: FuncKind::Define,
         })
+    }
+
+    pub fn declare(ctx: &mut Context, name: String, ret_ty: Ty) -> Self {
+        ctx.alloc_with(|self_ptr| FuncData {
+            self_ptr,
+            name,
+            params: Vec::new(),
+            ret_ty,
+            head: None,
+            tail: None,
+            kind: FuncKind::Declare,
+        })
+    }
+
+    pub fn kind(self, ctx: &Context) -> &FuncKind {
+        &self.deref(ctx).kind
     }
 
     pub fn add_param(self, ctx: &mut Context, ty: Ty) -> Value {
@@ -57,28 +80,45 @@ impl Func {
 
 impl fmt::Display for DisplayFunc<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let prefix = match *self.func.kind(self.ctx) {
+            FuncKind::Define => "define",
+            FuncKind::Declare => "declare",
+        };
+
+        // 写入函数声明部分
         write!(
             f,
-            "define {} @{}(",
+            "{} {} @{}(",
+            prefix,
             self.func.ret_ty(self.ctx).display(self.ctx),
             self.func.name(self.ctx)
         )?;
 
+        // 写入参数列表
         for (i, param) in self.func.params(self.ctx).iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{}", param.ty(self.ctx).display(self.ctx))?;
+            // 不仅要打印类型，还要打印参数名
+            write!(f, "{}", param.display(self.ctx, true))?;
         }
 
-        write!(f, ") {{")?;
-
-        for block in self.func.iter(self.ctx) {
-            write!(f, "\n{}", block.display(self.ctx))?;
-        }
-
-        write!(f, "\n}}")?;
-
+        // 根据函数类型决定是否输出函数体
+        match *self.func.kind(self.ctx) {
+            FuncKind::Declare => {
+                // declare
+                write!(f, ")")
+            }
+            FuncKind::Define => {
+                // define
+                write!(f, ") {{")?;
+                for block in self.func.iter(self.ctx) {
+                    write!(f, "\n{}", block.display(self.ctx))?;
+                }
+                write!(f, "\n}}")
+            }
+        }.expect("Write failed");
+        
         Ok(())
     }
 }

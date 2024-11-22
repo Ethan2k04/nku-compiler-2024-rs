@@ -42,7 +42,7 @@ impl<'ctx> std::fmt::Display for DisplayTy<'ctx> {
             TyData::Int1 => write!(f, "i1"),
             TyData::Int8 => write!(f, "i8"),
             TyData::Int32 => write!(f, "i32"),
-            TyData::Float32 => write!(f, "f32"),
+            TyData::Float32 => write!(f, "float"),
             TyData::Ptr => write!(f, "ptr"),
             TyData::Array { elem, len } => write!(
                 f,
@@ -83,6 +83,14 @@ impl Ty {
 
     pub fn is_void(&self, ctx: &Context) -> bool {
         matches!(self.try_deref(ctx).unwrap(), TyData::Void)
+    }
+    
+    pub fn is_int(&self, ctx: &Context) -> bool {
+        matches!(self.try_deref(ctx).unwrap(), TyData::Int1 | TyData::Int8 | TyData::Int32)
+    }
+    
+    pub fn is_float(&self, ctx: &Context) -> bool {
+        matches!(self.try_deref(ctx).unwrap(), TyData::Float32)
     }
 
     /// Get the bit width of the type.

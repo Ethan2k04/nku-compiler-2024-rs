@@ -1,9 +1,18 @@
-int x[3] = {2344,1232,3435};
-int y[3] = {234,566,127378};
+int a;
+int main(){
+	a = 10;
+	int res = 1;
 
+    if (a > 0) {
+        if (a > 0) {
+            res = res + 1;
+        }
+        else {
+            res = res + 2;
+        }
+    }
+    else
+        res = res + 3;
 
-int main()
-{
-  int t = x[3];
-  
+    return res;
 }
