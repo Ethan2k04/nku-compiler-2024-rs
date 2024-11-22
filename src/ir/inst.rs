@@ -109,6 +109,10 @@ pub enum InstKind {
     Cast {
         op: CastOp,
     },
+    ArrayInit {
+        element_ty: Ty,
+        values: Vec<Value>,
+    },
 }
 
 enum OperandEntry<T: Usable> {
@@ -387,7 +391,7 @@ impl Inst {
         inst
     }
 
-    // TODO: Implement constructors for other instructions.
+    // TODO✔: Implement constructors for other instructions.
 
     /// Create a new `sub` instruction.
     pub fn sub(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
@@ -566,6 +570,51 @@ impl Inst {
         );
         inst.add_operand(ctx, rhs);
         inst.add_operand(ctx, lhs);
+        inst
+    }
+
+    /// Create a new `and` instruction.
+    pub fn and(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::And,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `or` instruction.
+    pub fn or(ctx: &mut Context, lhs: Value, rhs: Value, ty: Ty) -> Self {
+        let inst = Self::new(
+            ctx,
+            InstKind::IntBinary {
+                op: IntBinaryOp::Or,
+            },
+            ty,
+        );
+        inst.add_operand(ctx, lhs);
+        inst.add_operand(ctx, rhs);
+        inst
+    }
+
+    /// Create a new `array_init` instruction.
+    pub fn init_list(ctx: &mut Context, element_ty: Ty, elements: Vec<Value>) -> Self {
+        let array_ty = Ty::array(ctx, element_ty, elements.len());
+        let inst = Self::new(
+            ctx,
+            InstKind::ArrayInit {
+                element_ty,
+                values: elements.clone(),
+            },
+            array_ty,
+        );
+        for element in elements {
+            inst.add_operand(ctx, element);
+        }
         inst
     }
 
@@ -785,6 +834,21 @@ impl fmt::Display for DisplayInst<'_> {
                     f,
                     "br label {}",
                     self.inst.successor(self.ctx, 0).name(self.ctx)
+                )?;
+            }
+            InstKind::CondBr => {
+                // 获取条件值
+                let cond_val = self.inst.operand(self.ctx, 0).display(self.ctx, true);
+
+                // 获取跳转目标块
+                let then_block = self.inst.successor(self.ctx, 0).name(self.ctx);
+                let else_block = self.inst.successor(self.ctx, 1).name(self.ctx);
+
+                // 输出condbr指令的格式
+                write!(
+                    f,
+                    "br {}, label {}, label {}",
+                    cond_val, then_block, else_block
                 )?;
             }
             _ => {

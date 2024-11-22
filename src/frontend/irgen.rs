@@ -2,13 +2,15 @@
 
 use super::ast::{
     self, AssignStmt, BinaryOp, BlockItem, CompUnit, ComptimeVal as Cv, ConstDecl, ConstDef, Decl,
-    Exp, ExpKind, ExpStmt, FuncCall, FuncDef, FuncFParam, Item, LVal, ReturnStmt, Stmt, UnaryOp,
-    VarDecl, VarDef,
+    Exp, ExpKind, ExpStmt, FuncCall, FuncDef, FuncFParam, IfStmt, Item, LVal, ReturnStmt, Stmt,
+    UnaryOp, VarDecl, VarDef, WhileStmt,
 };
 use super::symbol_table::{SymbolEntry, SymbolTable};
 use super::types::{Type, TypeKind as Tk};
 use crate::infra::linked_list::LinkedListContainer;
-use crate::ir::{self, Block, ConstantValue, Context, Func, Global, Inst, TargetInfo, Ty, Value};
+use crate::ir::{
+    self, Block, ConstantValue, Context, Func, Global, Inst, TargetInfo, Ty, TyData, Value,
+};
 
 /// Generate IR from the AST.
 pub fn irgen(ast: &CompUnit, pointer_width: u8) -> Context {
@@ -147,11 +149,14 @@ impl IrGenContext {
                 | Bo::Le
                 | Bo::Ge
                 | Bo::Eq
-                | Bo::Ne => {
+                | Bo::Ne
+                | Bo::And
+                | Bo::Or => {
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
                     let lhs_ty = lhs.ty(&self.ctx);
+                    let i1_ty = Ty::i1(&mut self.ctx);
 
                     let inst = match op {
                         // Generate add instruction
@@ -184,22 +189,20 @@ impl IrGenContext {
                             };
                             inst
                         }
-                        Bo::Eq => Inst::eq(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Ne => Inst::ne(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Lt => Inst::lt(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Le => Inst::le(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Gt => Inst::gt(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Ge => Inst::ge(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::And | Bo::Or => unreachable!(),
+                        Bo::Eq => Inst::eq(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Ne => Inst::ne(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Lt => Inst::lt(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Le => Inst::le(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Gt => Inst::gt(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Ge => Inst::ge(&mut self.ctx, lhs, rhs, i1_ty),
+                        // TODO✔: Implement logical and/or
+                        Bo::And => Inst::and(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Or => Inst::or(&mut self.ctx, lhs, rhs, i1_ty),
                     };
 
                     // Push the instruction to the current block
                     curr_block.push_back(&mut self.ctx, inst).unwrap();
                     Some(inst.result(&self.ctx).unwrap())
-                }
-                Bo::And | Bo::Or => {
-                    // TODO: Implement logical and/or
-                    todo!("implement and/or");
                 }
             },
             // Unary operations -> generate the operation
@@ -246,9 +249,26 @@ impl IrGenContext {
                     Some(load.result(&self.ctx).unwrap())
                 }
             }
-            ExpKind::InitList(..) => {
-                // TODO: Implement init list
-                todo!("implement init list");
+            ExpKind::InitList(elements) => {
+                // TODO✔: Implement init list
+                // XXX: Not sure when InitList is invoked
+                let mut element_values = Vec::new();
+                let mut element_ty = None;
+                for element_exp in elements {
+                    if let Some(value) = self.gen_local_expr(element_exp) {
+                        if element_ty.is_none() {
+                            element_ty = Some(value.ty(&self.ctx));
+                        }
+                        element_values.push(value);
+                    } else {
+                        panic!("Failed to generate IR for initialization element");
+                    }
+                }
+                let element_ty =
+                    element_ty.expect("Empty init list should not occur at this stage");
+                let init_list_inst = Inst::init_list(&mut self.ctx, element_ty, element_values);
+                curr_block.push_back(&mut self.ctx, init_list_inst).unwrap();
+                Some(init_list_inst.result(&self.ctx).unwrap())
             }
             ExpKind::Coercion(_) => {
                 // TODO: Implement coercion generation
@@ -586,21 +606,137 @@ impl IrGen for Stmt {
                 }
             }
             Stmt::Block(block) => block.irgen(irgen),
-            Stmt::If(..) => {
-                // TODO: Implement if statement
-                todo!("implement if statement");
+            Stmt::If(if_stmt) => {
+                // TODO✔: Implement if statement
+                let curr_block = irgen.curr_block.unwrap();
+                let IfStmt { cond, then, else_ } = if_stmt.as_ref();
+                let cond_val = irgen.gen_local_expr(&cond).unwrap();
+                let then_block = Block::new(&mut irgen.ctx);
+                let else_block = Block::new(&mut irgen.ctx);
+                let merge_block = Block::new(&mut irgen.ctx);
+                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, then_block, else_block);
+                curr_block.push_back(&mut irgen.ctx, cond_br).unwrap();
+
+                // generate IR in then_block
+                irgen.curr_block = Some(then_block);
+                then.irgen(irgen);
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, then_block)
+                    .unwrap();
+
+                // XXX: Maybe we could optimize this
+                let br_to_merge = Inst::br(&mut irgen.ctx, merge_block);
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, br_to_merge)
+                    .unwrap();
+
+                // generate IR in else_block (if exists)
+                irgen.curr_block = Some(else_block);
+                if let Some(else_stmt) = else_ {
+                    else_stmt.irgen(irgen);
+                }
+
+                // else_block jump to merge_block
+                // XXX: Maybe we could optimize this
+                let br_to_merge = Inst::br(&mut irgen.ctx, merge_block);
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, br_to_merge)
+                    .unwrap();
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, else_block)
+                    .unwrap();
+
+                // update curr_block as merge block
+                irgen.curr_block = Some(merge_block);
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, merge_block)
+                    .unwrap();
             }
-            Stmt::While(..) => {
-                // TODO: Implement while statement
-                todo!("implement while statement");
+            Stmt::While(while_stmt) => {
+                // TODO✔: Implement while statement
+                let WhileStmt { cond, body } = while_stmt.as_ref();
+                let cond_val = irgen.gen_local_expr(&cond).unwrap();
+                let while_block = Block::new(&mut irgen.ctx);
+                let merge_block = Block::new(&mut irgen.ctx);
+                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, while_block, merge_block);
+
+                // push current block and loop entry/exit block to stack
+                irgen.loop_entry_stack.push(while_block.clone());
+                irgen.loop_exit_stack.push(merge_block.clone());
+
+                // generate IR for cond_br
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, cond_br)
+                    .unwrap();
+
+                // generate IR in while_block
+                irgen.curr_block = Some(while_block);
+                body.irgen(irgen);
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, while_block)
+                    .unwrap();
+
+                // while_block jump to while_block or merge_block
+                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, while_block, merge_block);
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, cond_br)
+                    .unwrap();
+
+                // update curr_block as merge block
+                irgen.curr_block = Some(merge_block);
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, merge_block)
+                    .unwrap();
+
+                // pop top elem in stack
+                irgen.loop_entry_stack.pop();
+                irgen.loop_exit_stack.pop();
             }
             Stmt::Break => {
-                // TODO: Implement break statement
-                todo!("implement break statement");
+                // TODO✔: Implement break statement
+                if let Some(last_exit_block) = irgen.loop_exit_stack.last().cloned() {
+                    let br_to_exit = Inst::br(&mut irgen.ctx, last_exit_block);
+
+                    irgen
+                        .curr_block
+                        .unwrap()
+                        .push_back(&mut irgen.ctx, br_to_exit)
+                        .unwrap();
+                } else {
+                    panic!("'break' used outside of a loop");
+                }
             }
             Stmt::Continue => {
-                // TODO: Implement continue statement
-                todo!("implement continue statement");
+                // TODO✔: Implement continue statement
+                if let Some(last_entry_block) = irgen.loop_entry_stack.last().cloned() {
+                    let br_to_continue = Inst::br(&mut irgen.ctx, last_entry_block);
+
+                    irgen
+                        .curr_block
+                        .unwrap()
+                        .push_back(&mut irgen.ctx, br_to_continue)
+                        .unwrap();
+                } else {
+                    panic!("'continue' used outside of a loop");
+                }
             }
             Stmt::Return(ReturnStmt { exp }) => {
                 if let Some(exp) = exp {

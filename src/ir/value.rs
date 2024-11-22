@@ -10,6 +10,7 @@ use super::ty::Ty;
 use crate::frontend::ComptimeVal;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr, Idx};
 
+#[derive(Clone)]
 pub enum ConstantValue {
     /// The undefined value.
     Undef { ty: Ty },
