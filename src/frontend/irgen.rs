@@ -335,12 +335,10 @@ impl IrGenContext {
                             }
                         },
                         Bo::And => {
-                            let i1_ty = Ty::i1(&mut self.ctx);
-                            Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::And, i1_ty)
+                            Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::And, lhs_ty)
                         },
                         Bo::Or => {
-                            let i1_ty = Ty::i1(&mut self.ctx);
-                            Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::Or, i1_ty)
+                            Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::Or, lhs_ty)
                         },
                     };
 
@@ -765,6 +763,16 @@ impl IrGen for FuncDef {
         // generate body
         self.body.irgen(irgen);
 
+        // 如果没有返回语句，添加一个
+        if let Some(curr) = irgen.curr_block {
+            if let Some(last_inst) = curr.tail(&irgen.ctx) {
+                if !last_inst.is_terminator(&irgen.ctx) {
+                    let br = Inst::br(&mut irgen.ctx, ret_block);
+                    curr.push_back(&mut irgen.ctx, br).unwrap();
+                }
+            }
+        }
+
         // append return block
         func.push_back(&mut irgen.ctx, ret_block).unwrap();
 
@@ -900,7 +908,16 @@ impl IrGen for Stmt {
             }
             Stmt::Block(block) => block.irgen(irgen),
             Stmt::If(if_stmt) => {
-                let cond = irgen.gen_local_expr(&if_stmt.cond).unwrap();
+                let mut cond = irgen.gen_local_expr(&if_stmt.cond).unwrap();
+
+                if !cond.ty(&irgen.ctx).is_i1(&irgen.ctx) {
+                    // 如果条件不是i1类型，需要进行类型转换
+                    let i1_ty = Ty::i1(&mut irgen.ctx);
+                    let trunc_to_i1 = Inst::cast(&mut irgen.ctx, CastOp::Trunc, cond, i1_ty);
+                    curr_block.push_back(&mut irgen.ctx, trunc_to_i1).unwrap();
+                    cond = trunc_to_i1.result(&irgen.ctx).unwrap();
+                }
+
                 let curr_block = irgen.curr_block.unwrap();
                 let curr_func = irgen.curr_func.unwrap();
 
@@ -977,7 +994,7 @@ impl IrGen for Stmt {
 
             }
             Stmt::While(while_stmt) => {
-                // TODO✔: Implement while statement
+                // TODO✔: Implement while statement maybe something wrong here
                 // 1. 创建所需的基本块
                 let loop_entry = Block::new(&mut irgen.ctx);  // 条件判断块
                 let loop_body = Block::new(&mut irgen.ctx);   // 循环体块
@@ -1040,13 +1057,6 @@ impl IrGen for Stmt {
                 irgen.curr_block.unwrap()
                     .push_back(&mut irgen.ctx, br)
                     .expect("Failed to insert break branch instruction");
-
-                // 由于break之后的代码不可达，我们需要创建一个新的基本块用于之后的代码
-                let unreachable_block = Block::new(&mut irgen.ctx);
-                irgen.curr_func.unwrap()
-                    .push_back(&mut irgen.ctx, unreachable_block)
-                    .expect("Failed to append unreachable block");
-                irgen.curr_block = Some(unreachable_block);
             }
             Stmt::Continue => {
                 // TODO✔: Implement continue statement
@@ -1058,13 +1068,6 @@ impl IrGen for Stmt {
                 irgen.curr_block.unwrap()
                     .push_back(&mut irgen.ctx, br)
                     .expect("Failed to insert continue branch instruction");
-
-                // 同样需要创建一个新的基本块用于之后的代码
-                let unreachable_block = Block::new(&mut irgen.ctx);
-                irgen.curr_func.unwrap()
-                    .push_back(&mut irgen.ctx, unreachable_block)
-                    .expect("Failed to append unreachable block");
-                irgen.curr_block = Some(unreachable_block);
             }
             Stmt::Return(ReturnStmt { exp }) => {
                 if let Some(exp) = exp {

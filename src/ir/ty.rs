@@ -84,6 +84,10 @@ impl Ty {
     pub fn is_void(&self, ctx: &Context) -> bool {
         matches!(self.try_deref(ctx).unwrap(), TyData::Void)
     }
+
+    pub fn is_i1(&self, ctx: &Context) -> bool {
+        matches!(self.try_deref(ctx).unwrap(), TyData::Int1)
+    }
     
     pub fn is_int(&self, ctx: &Context) -> bool {
         matches!(self.try_deref(ctx).unwrap(), TyData::Int1 | TyData::Int8 | TyData::Int32)
