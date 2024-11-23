@@ -504,10 +504,17 @@ impl IrGenContext {
                         Some(cast.result(&self.ctx).unwrap())
                     }
                     (Tk::Int, Tk::Bool) => {
+                        let zero = Value::i32(&mut self.ctx, 0);
                         let i1_ty = Ty::i1(&mut self.ctx);
-                        let cast = Inst::cast(&mut self.ctx, CastOp::Trunc, val, i1_ty);
-                        curr_block.push_back(&mut self.ctx, cast).unwrap();
-                        Some(cast.result(&self.ctx).unwrap())
+                        let icmp = Inst::int_binary(
+                            &mut self.ctx,
+                            val,
+                            zero,
+                            IntBinaryOp::ICmp { cond: IntCmpCond::Ne },
+                            i1_ty,
+                        );
+                        curr_block.push_back(&mut self.ctx, icmp).unwrap();
+                        Some(icmp.result(&self.ctx).unwrap())
                     }
                     (Tk::Int, Tk::Float) => {
                         let f32_ty = Ty::f32(&mut self.ctx);
@@ -540,22 +547,20 @@ impl IrGenContext {
                         Some(to_float.result(&self.ctx).unwrap())
                     }
                     (Tk::Float, Tk::Bool) => {
-                        // float -> int -> bool
-                        let i32_ty = Ty::i32(&mut self.ctx);
+                        // float -> bool
                         let i1_ty = Ty::i1(&mut self.ctx);
+                        let fzero = Value::f32(&mut self.ctx, 0.0);
 
-                        // 先创建 fptosi 指令
-                        let fptosi = Inst::cast(&mut self.ctx, CastOp::FpToSi, val, i32_ty);
-                        curr_block.push_back(&mut self.ctx, fptosi).unwrap();
-
-                        // 先获取 fptosi 的结果
-                        let fptosi_result = fptosi.result(&self.ctx).unwrap();
-                        // 再创建 trunc 指令
-                        let to_bool =
-                            Inst::cast(&mut self.ctx, CastOp::Trunc, fptosi_result, i1_ty);
-                        curr_block.push_back(&mut self.ctx, to_bool).unwrap();
-
-                        Some(to_bool.result(&self.ctx).unwrap())
+                        // 先创建 fcmp 指令
+                        let fcmp = Inst::float_binary(
+                            &mut self.ctx,
+                            val,
+                            fzero,
+                            FloatBinaryOp::FCmp { cond: FloatCmpCond::UNe },
+                            i1_ty,
+                        );
+                        curr_block.push_back(&mut self.ctx, fcmp).unwrap();
+                        Some(fcmp.result(&self.ctx).unwrap())
                     }
                     (Tk::Array(..), Tk::Pointer(_)) => self.gen_local_expr(expr),
                     _ => unreachable!("invalid coercion: {:#?} -> {:#?}", from_ty, to_ty),
@@ -968,13 +973,33 @@ impl IrGen for Stmt {
             Stmt::Block(block) => block.irgen(irgen),
             Stmt::If(if_stmt) => {
                 let mut cond = irgen.gen_local_expr(&if_stmt.cond).unwrap();
-
+                // 如果条件不是i1类型，需要进行类型转换
                 if !cond.ty(&irgen.ctx).is_i1(&irgen.ctx) {
-                    // 如果条件不是i1类型，需要进行类型转换
-                    let i1_ty = Ty::i1(&mut irgen.ctx);
-                    let trunc_to_i1 = Inst::cast(&mut irgen.ctx, CastOp::Trunc, cond, i1_ty);
-                    curr_block.push_back(&mut irgen.ctx, trunc_to_i1).unwrap();
-                    cond = trunc_to_i1.result(&irgen.ctx).unwrap();
+                    if cond.ty(&irgen.ctx).is_float(&irgen.ctx) {
+                        let i1_ty = Ty::i1(&mut irgen.ctx);
+                        let fzero = Value::f32(&mut irgen.ctx, 0.0);
+                        let fcmp = Inst::float_binary(
+                            &mut irgen.ctx,
+                            cond,
+                            fzero,
+                            FloatBinaryOp::FCmp { cond: FloatCmpCond::UNe },
+                            i1_ty,
+                        );
+                        curr_block.push_back(&mut irgen.ctx, fcmp).unwrap();
+                        cond = fcmp.result(&irgen.ctx).unwrap();
+                    } else {
+                        let i1_ty = Ty::i1(&mut irgen.ctx);
+                        let zero = Value::i32(&mut irgen.ctx, 0);
+                        let icmp = Inst::int_binary(
+                            &mut irgen.ctx,
+                            cond,
+                            zero,
+                            IntBinaryOp::ICmp { cond: IntCmpCond::Ne },
+                            i1_ty,
+                        );
+                        curr_block.push_back(&mut irgen.ctx, icmp).unwrap();
+                        cond = icmp.result(&irgen.ctx).unwrap();
+                    }
                 }
 
                 let curr_block = irgen.curr_block.unwrap();
@@ -1018,19 +1043,14 @@ impl IrGen for Stmt {
                         } else {
                             is_terminator_then = true;
                         }
+                    } else {
+                        let jump = Inst::br(&mut irgen.ctx, merge_block);
+                        irgen
+                            .curr_block
+                            .unwrap()
+                            .push_back(&mut irgen.ctx, jump)
+                            .unwrap();
                     }
-                }
-
-                // 如果then块没有指令，添加一个无条件跳转到merge块
-                if irgen.curr_block.unwrap().tail(&irgen.ctx)
-                    == irgen.curr_block.unwrap().head(&irgen.ctx)
-                {
-                    let jump = Inst::br(&mut irgen.ctx, merge_block);
-                    irgen
-                        .curr_block
-                        .unwrap()
-                        .push_back(&mut irgen.ctx, jump)
-                        .unwrap();
                 }
 
                 // 生成else分支代码(如果有)
@@ -1091,18 +1111,39 @@ impl IrGen for Stmt {
 
                 // 4. 生成条件判断代码
                 irgen.curr_block = Some(loop_entry);
-                let mut cond_val = irgen.gen_local_expr(&while_stmt.cond).unwrap();
+                let mut cond = irgen.gen_local_expr(&while_stmt.cond).unwrap();
 
-                if !cond_val.ty(&irgen.ctx).is_i1(&irgen.ctx) {
-                    // 如果条件不是i1类型，需要进行类型转换
-                    let i1_ty = Ty::i1(&mut irgen.ctx);
-                    let trunc_to_i1 = Inst::cast(&mut irgen.ctx, CastOp::Trunc, cond_val, i1_ty);
-                    loop_entry.push_back(&mut irgen.ctx, trunc_to_i1).unwrap();
-                    cond_val = trunc_to_i1.result(&irgen.ctx).unwrap();
+                // 如果条件不是i1类型，需要进行类型转换
+                if !cond.ty(&irgen.ctx).is_i1(&irgen.ctx) {
+                    if cond.ty(&irgen.ctx).is_float(&irgen.ctx) {
+                        let i1_ty = Ty::i1(&mut irgen.ctx);
+                        let fzero = Value::f32(&mut irgen.ctx, 0.0);
+                        let fcmp = Inst::float_binary(
+                            &mut irgen.ctx,
+                            cond,
+                            fzero,
+                            FloatBinaryOp::FCmp { cond: FloatCmpCond::UNe },
+                            i1_ty,
+                        );
+                        curr_block.push_back(&mut irgen.ctx, fcmp).unwrap();
+                        cond = fcmp.result(&irgen.ctx).unwrap();
+                    } else {
+                        let i1_ty = Ty::i1(&mut irgen.ctx);
+                        let zero = Value::i32(&mut irgen.ctx, 0);
+                        let icmp = Inst::int_binary(
+                            &mut irgen.ctx,
+                            cond,
+                            zero,
+                            IntBinaryOp::ICmp { cond: IntCmpCond::Ne },
+                            i1_ty,
+                        );
+                        curr_block.push_back(&mut irgen.ctx, icmp).unwrap();
+                        cond = icmp.result(&irgen.ctx).unwrap();
+                    }
                 }
 
                 // 5. 根据条件跳转到循环体或退出块
-                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, loop_body, loop_exit);
+                let cond_br = Inst::cond_br(&mut irgen.ctx, cond, loop_body, loop_exit);
                 loop_entry
                     .push_back(&mut irgen.ctx, cond_br)
                     .expect("Failed to insert conditional branch");
