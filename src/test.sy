@@ -1,18 +1,59 @@
-int a;
+int x[3] = {2344,1232,3435};
+int y[3] = {234,566,127378};
+int d;
+void modx()
+{
+  x[0] = x[0] + 2;
+  x[1] = x[1] + 2;
+  x[2] = x[2] + 2;
+}
+void mody()
+{
+  y[0] = y[0] + 2;
+  y[1] = y[1] + 2;
+  y[2] = y[2] + 2;
+}
+
+void refx()
+{
+  d = x[0] + x[1] + x[2];
+}
+
+void refy()
+{
+  d = y[0] + y[1] + y[2];
+}
+
+void modxrefy()
+{
+  x[0] = y[0] + 3;
+  x[1] = y[1] + 4;
+  x[2] = y[2] + 5;
+}
+
+void modyrefx()
+{
+  y[0] = x[0] + 5;
+  y[1] = x[1] + 6;
+  y[2] = x[2] + 7;
+}
 int main(){
-	a = 10;
-	int res = 1;
-
-    if (a > 0) {
-        if (a > 0) {
-            res = res + 1;
-        }
-        else {
-            res = res + 2;
-        }
-    }
-    else
-        res = res + 3;
-
-    return res;
+    int t = x[2];
+    putint(t);
+    putch(10);
+    y[2] = 3;
+    t = t + x[2];
+    putint(t);
+    putch(10);
+    x[2] = 3;
+    t = t + x[2] + d;
+    putint(t);
+    putch(10);
+    d = 5;
+    t = t + x[2] + d + d;
+    putint(t);
+    putch(10);
+    refx();
+    putint(d);
+    putch(10);
 }

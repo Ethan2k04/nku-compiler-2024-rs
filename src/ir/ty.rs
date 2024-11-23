@@ -59,22 +59,34 @@ impl<'ctx> std::fmt::Display for DisplayTy<'ctx> {
 
 impl Ty {
     /// Fetch a type representing `void`.
-    pub fn void(ctx: &mut Context) -> Self { ctx.alloc(TyData::Void) }
+    pub fn void(ctx: &mut Context) -> Self {
+        ctx.alloc(TyData::Void)
+    }
 
     /// Fetch a type representing `i1`.
-    pub fn i1(ctx: &mut Context) -> Self { ctx.alloc(TyData::Int1) }
+    pub fn i1(ctx: &mut Context) -> Self {
+        ctx.alloc(TyData::Int1)
+    }
 
     /// Fetch a type representing `i8`.
-    pub fn i8(ctx: &mut Context) -> Self { ctx.alloc(TyData::Int8) }
+    pub fn i8(ctx: &mut Context) -> Self {
+        ctx.alloc(TyData::Int8)
+    }
 
     /// Fetch a type representing `i32`.
-    pub fn i32(ctx: &mut Context) -> Self { ctx.alloc(TyData::Int32) }
+    pub fn i32(ctx: &mut Context) -> Self {
+        ctx.alloc(TyData::Int32)
+    }
 
     /// Fetch a type representing 'f32'.
-    pub fn f32(ctx: &mut Context) -> Self { ctx.alloc(TyData::Float32) }
+    pub fn f32(ctx: &mut Context) -> Self {
+        ctx.alloc(TyData::Float32)
+    }
 
     /// Fetch a type representing a pointer.
-    pub fn ptr(ctx: &mut Context) -> Self { ctx.alloc(TyData::Ptr) }
+    pub fn ptr(ctx: &mut Context) -> Self {
+        ctx.alloc(TyData::Ptr)
+    }
 
     /// Fetch a type representing an array.
     pub fn array(ctx: &mut Context, elem: Ty, len: usize) -> Self {
@@ -88,13 +100,20 @@ impl Ty {
     pub fn is_i1(&self, ctx: &Context) -> bool {
         matches!(self.try_deref(ctx).unwrap(), TyData::Int1)
     }
-    
+
     pub fn is_int(&self, ctx: &Context) -> bool {
-        matches!(self.try_deref(ctx).unwrap(), TyData::Int1 | TyData::Int8 | TyData::Int32)
+        matches!(
+            self.try_deref(ctx).unwrap(),
+            TyData::Int1 | TyData::Int8 | TyData::Int32
+        )
     }
-    
+
     pub fn is_float(&self, ctx: &Context) -> bool {
         matches!(self.try_deref(ctx).unwrap(), TyData::Float32)
+    }
+
+    pub fn is_pointer(&self, ctx: &Context) -> bool {
+        matches!(self.try_deref(ctx).unwrap(), TyData::Ptr)
     }
 
     /// Get the bit width of the type.
@@ -119,7 +138,9 @@ impl Ty {
     }
 
     /// Get the displayable type.
-    pub fn display(self, ctx: &Context) -> DisplayTy { DisplayTy { ctx, ty: self } }
+    pub fn display(self, ctx: &Context) -> DisplayTy {
+        DisplayTy { ctx, ty: self }
+    }
 }
 
 impl ArenaPtr for Ty {
@@ -135,13 +156,21 @@ impl Arena<Ty> for Context {
         panic!("types cannot be allocated with a closure");
     }
 
-    fn alloc(&mut self, data: TyData) -> Ty { Ty(self.tys.alloc(data)) }
+    fn alloc(&mut self, data: TyData) -> Ty {
+        Ty(self.tys.alloc(data))
+    }
 
-    fn try_dealloc(&mut self, ptr: Ty) -> Option<TyData> { self.tys.try_dealloc(ptr.0) }
+    fn try_dealloc(&mut self, ptr: Ty) -> Option<TyData> {
+        self.tys.try_dealloc(ptr.0)
+    }
 
-    fn try_deref(&self, ptr: Ty) -> Option<&TyData> { self.tys.try_deref(ptr.0) }
+    fn try_deref(&self, ptr: Ty) -> Option<&TyData> {
+        self.tys.try_deref(ptr.0)
+    }
 
-    fn try_deref_mut(&mut self, ptr: Ty) -> Option<&mut TyData> { self.tys.try_deref_mut(ptr.0) }
+    fn try_deref_mut(&mut self, ptr: Ty) -> Option<&mut TyData> {
+        self.tys.try_deref_mut(ptr.0)
+    }
 }
 
 #[cfg(test)]

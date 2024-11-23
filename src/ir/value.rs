@@ -109,7 +109,7 @@ impl ConstantValue {
 
         match self {
             ConstantValue::Undef { .. } => s.push_str("undef"),
-            ConstantValue::AggregateZero { .. } => s.push_str("zeroinitializer"),
+            ConstantValue::AggregateZero { .. } => s.push_str("0"),
             ConstantValue::Int1 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int8 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int32 { value, .. } => s.push_str(&value.to_string()),
@@ -137,7 +137,7 @@ impl ConstantValue {
                     let bits = value64.to_bits();
                     s.push_str(&format!("0x{:X}", bits));
                 }
-            },
+            }
             ConstantValue::Array { elems, .. } => {
                 s.push('[');
                 for (i, elem) in elems.iter().enumerate() {

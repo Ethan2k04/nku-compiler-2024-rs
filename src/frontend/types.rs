@@ -2,8 +2,6 @@
 //! The types are used in the AST and the symbol table.
 /// Reference: https://github.com/pku-minic/koopa/blob/master/src/ir/types.rs
 /// Reference: https://github.com/JuniMay/orzcc/blob/master/src/frontend/sysy/types.rs
-
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -35,16 +33,22 @@ pub enum TypeKind {
 pub struct Type(Rc<TypeKind>);
 
 impl hash::Hash for Type {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) { self.0.hash(state) }
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
 }
 
 impl PartialEq for Type {
     // Just compare the pointers
-    fn eq(&self, other: &Self) -> bool { Rc::ptr_eq(&self.0, &other.0) }
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 impl fmt::Debug for Type {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.fmt(f) }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 impl fmt::Display for Type {
@@ -97,46 +101,83 @@ impl Type {
     }
 
     // Get the kind of the type.
-    pub fn kind(&self) -> &TypeKind { &self.0 }
+    pub fn kind(&self) -> &TypeKind {
+        &self.0
+    }
 
     // Create a new void type.
-    pub fn void() -> Self { Self::make(TypeKind::Void) }
+    pub fn void() -> Self {
+        Self::make(TypeKind::Void)
+    }
 
     // Create a new boolean type.
-    pub fn bool() -> Self { Self::make(TypeKind::Bool) }
+    pub fn bool() -> Self {
+        Self::make(TypeKind::Bool)
+    }
 
     // Create a new integer type.
-    pub fn int() -> Self { Self::make(TypeKind::Int) }
+    pub fn int() -> Self {
+        Self::make(TypeKind::Int)
+    }
 
     // Create a new float type.
-    pub fn float() -> Self { Self::make(TypeKind::Float) }
+    pub fn float() -> Self {
+        Self::make(TypeKind::Float)
+    }
 
     // Create a new array type.
-    pub fn array(t: Type, len: usize) -> Self { Self::make(TypeKind::Array(t, len)) }
+    pub fn array(t: Type, len: usize) -> Self {
+        Self::make(TypeKind::Array(t, len))
+    }
 
     // Create a new pointer type.
-    pub fn pointer(t: Type) -> Self { Self::make(TypeKind::Pointer(t)) }
+    pub fn pointer(t: Type) -> Self {
+        Self::make(TypeKind::Pointer(t))
+    }
 
     // Create a new function type.
-    pub fn func(params: Vec<Type>, ret: Type) -> Self { Self::make(TypeKind::Func(params, ret)) }
+    pub fn func(params: Vec<Type>, ret: Type) -> Self {
+        Self::make(TypeKind::Func(params, ret))
+    }
 
     // Check if the type is a void type.
-    pub fn is_void(&self) -> bool { matches!(self.kind(), TypeKind::Void) }
+    pub fn is_void(&self) -> bool {
+        matches!(self.kind(), TypeKind::Void)
+    }
 
     // Check if the type is a boolean type.
-    pub fn is_bool(&self) -> bool { matches!(self.kind(), TypeKind::Bool) }
+    pub fn is_bool(&self) -> bool {
+        matches!(self.kind(), TypeKind::Bool)
+    }
 
     // Check if the type is an integer type.
-    pub fn is_int(&self) -> bool { matches!(self.kind(), TypeKind::Int) }
+    pub fn is_int(&self) -> bool {
+        matches!(self.kind(), TypeKind::Int)
+    }
 
     // Check if the type is a float type.
-    pub fn is_float(&self) -> bool { matches!(self.kind(), TypeKind::Float) }
+    pub fn is_float(&self) -> bool {
+        matches!(self.kind(), TypeKind::Float)
+    }
 
     // Check if the type is an array type.
-    pub fn is_array(&self) -> bool { matches!(self.kind(), TypeKind::Array(_, _)) }
+    pub fn is_array(&self) -> bool {
+        matches!(self.kind(), TypeKind::Array(_, _))
+    }
 
     // Check if the type is a pointer type.
-    pub fn is_pointer(&self) -> bool { matches!(self.kind(), TypeKind::Pointer(_)) }
+    pub fn is_pointer(&self) -> bool {
+        matches!(self.kind(), TypeKind::Pointer(_))
+    }
+
+    // Get the type of the element of the array
+    pub fn element_type(&self) -> &Type {
+        match self.kind() {
+            TypeKind::Array(t, _) => t,
+            TypeKind::Pointer(t) => t,
+            _ => panic!("element_type: not an array or pointer type: {}", self),
+        }
+    }
 
     // pub fn is_compatible_with(&self, other: &Type) -> bool {
     //     match (self.kind(), other.kind()) {
@@ -151,9 +192,9 @@ impl Type {
     // XXX: Maybe we should add a func to get all the dimensions of an array type.
 
     /// Get the element type and length of an array type.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// - Panics if the type is not an array type.
     pub fn unwrap_array(&self) -> (&Type, usize) {
         if let TypeKind::Array(t, len) = self.kind() {

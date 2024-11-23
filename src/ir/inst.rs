@@ -792,6 +792,49 @@ impl Inst {
         inst
     }
 
+    /// Create a new `get_element_ptr` instruction.
+    pub fn get_element_ptr(
+        ctx: &mut Context,
+        bound_ty: Ty,
+        ptr: Value,
+        indices: Vec<Value>,
+    ) -> Self {
+        // Ensure the pointer is valid and has the correct type
+        if !ptr.ty(ctx).is_pointer(ctx) {
+            panic!(
+                "getelementptr requires a pointer type for `ptr`, got {}",
+                ptr.ty(ctx).display(ctx)
+            );
+        }
+
+        // Ensure all indices are integers
+        for (i, index) in indices.iter().enumerate() {
+            if !index.ty(ctx).is_int(ctx) {
+                panic!(
+                    "getelementptr requires integer indices, but index {} has type {}",
+                    i,
+                    index.ty(ctx).display(ctx)
+                );
+            }
+        }
+
+        // Resulting type should be a pointer to the indexed element type
+        let result_ty = Ty::ptr(ctx);
+
+        // Create the instruction
+        let inst = Self::new(ctx, InstKind::GetElementPtr { bound_ty }, result_ty);
+
+        // Add the base pointer as the first operand
+        inst.add_operand(ctx, ptr);
+
+        // Add all indices as additional operands
+        for index in indices {
+            inst.add_operand(ctx, index);
+        }
+
+        inst
+    }
+
     /// Create an operand and add it to the operand list.
     fn add_operand(self, ctx: &mut Context, operand: Value) {
         let next_idx = self.deref_mut(ctx).operands.next_idx();
@@ -1070,6 +1113,34 @@ impl fmt::Display for DisplayInst<'_> {
                     self.inst.successor(self.ctx, 0).name(self.ctx),
                     self.inst.successor(self.ctx, 1).name(self.ctx)
                 )?;
+            }
+            InstKind::GetElementPtr { bound_ty } => {
+                // 打印指令名和约束类型
+                write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
+
+                // 迭代所有操作数
+                let mut operands = self.inst.operand_iter(self.ctx);
+
+                // 第一个操作数：基指针
+                if let Some(base_ptr) = operands.next() {
+                    write!(
+                        f,
+                        "{}",
+                        base_ptr.display(self.ctx, true) // 基指针值
+                    )?;
+                } else {
+                    return Err(fmt::Error); // 基指针缺失
+                }
+
+                // 后续操作数：索引
+                for index in operands {
+                    write!(
+                        f,
+                        ", {} {}",
+                        index.ty(self.ctx).display(self.ctx), // 索引类型
+                        index.display(self.ctx, false)        // 索引值
+                    )?;
+                }
             }
             _ => {
                 dbg!(self.inst.kind(self.ctx));

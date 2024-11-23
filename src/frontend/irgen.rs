@@ -440,31 +440,73 @@ impl IrGenContext {
                 }
             },
             // LValues -> Get the value
-            ExpKind::LVal(LVal { ident, .. }) => {
-                // TODO: Add support for array indexing
-                // Look up the symbol in the symbol table to get the IR value
-                let entry = self.symtable.lookup(ident).unwrap();
-                let ir_value = entry.ir_value.unwrap();
+            ExpKind::LVal(LVal { ident, indices }) => {
+                // TODO✔: Add support for array indexing
+                // 查找符号表
+                let (ir_value, _base_ty) = {
+                    let entry = self.symtable.lookup(ident).unwrap();
+                    (entry.ir_value.unwrap(), entry.ty.clone())
+                };
+                let base_ty = _base_ty;
 
-                let ir_base_ty = self.gen_type(&entry.ty.clone());
+                // 获取基础类型的 IR 表示
+                let ir_base_ty = self.gen_type(&base_ty.clone());
 
-                let slot = if let IrGenResult::Global(slot) = ir_value {
-                    // If the value is a global, get the global reference
-                    let name = slot.name(&self.ctx).to_string();
-                    let value_ty = slot.ty(&self.ctx);
-                    Value::global_ref(&mut self.ctx, name, value_ty)
-                } else if let IrGenResult::Value(slot) = ir_value {
-                    // If the value is a local, get the value
-                    slot
-                } else {
-                    unreachable!()
+                // 确定起始 slot
+                let slot = match ir_value {
+                    IrGenResult::Global(slot) => {
+                        let name = slot.name(&self.ctx).to_string();
+                        let value_ty = slot.ty(&self.ctx);
+                        Value::global_ref(&mut self.ctx, name, value_ty)
+                    }
+                    IrGenResult::Value(slot) => slot,
+                    _ => unreachable!(),
                 };
 
-                if slot.is_param(&self.ctx) {
-                    // If the value is a parameter, just return the value
-                    Some(slot)
+                if !indices.is_empty() {
+                    // 如果有索引操作，逐步生成 GEP 指令
+                    let current_slot = slot;
+                    let mut current_base_ty = base_ty.clone();
+
+                    // 初始化索引操作数列表，第一项是数组的基地址
+                    let zero_value = Value::zero(&mut self.ctx);
+                    let mut gep_indices = vec![zero_value];
+
+                    // 遍历索引表达式，生成 GEP 索引
+                    for index_exp in indices {
+                        // 生成当前索引表达式的 IR 值
+                        let index_value = self.gen_local_expr(index_exp).unwrap();
+
+                        // 确保当前类型为数组或指针
+                        if !current_base_ty.is_array() && !current_base_ty.is_pointer() {
+                            panic!(
+                                "LVal indexing requires an array or pointer type, but got {}",
+                                current_base_ty
+                            );
+                        }
+
+                        // 获取数组或指针的元素类型
+                        current_base_ty = current_base_ty.element_type().clone();
+
+                        // 将当前索引值添加到索引列表
+                        gep_indices.push(index_value);
+                    }
+
+                    // 生成 GEP 指令时需要可变借用
+                    let bond_ty = self.gen_type(&base_ty);
+                    let gep_inst =
+                        Inst::getelementptr(&mut self.ctx, bond_ty, current_slot, gep_indices);
+                    curr_block.push_back(&mut self.ctx, gep_inst).unwrap();
+
+                    // 加载最终元素值（需要获取结果后再生成 Load 指令）
+                    let gep_result = gep_inst.result(&self.ctx).unwrap();
+                    let elem_ty = self.gen_type(&current_base_ty);
+                    let load_inst = Inst::load(&mut self.ctx, gep_result, elem_ty);
+                    curr_block.push_back(&mut self.ctx, load_inst).unwrap();
+
+                    Some(load_inst.result(&self.ctx).unwrap())
                 } else {
-                    // Otherwise, we need to load the value, generate a load instruction
+                    // 如果没有索引操作，直接生成 Load 指令
                     let load = Inst::load(&mut self.ctx, slot, ir_base_ty);
                     curr_block.push_back(&mut self.ctx, load).unwrap();
                     Some(load.result(&self.ctx).unwrap())
