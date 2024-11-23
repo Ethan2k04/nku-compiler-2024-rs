@@ -885,9 +885,17 @@ impl Exp {
         let mut exp = match self.kind {
             ExpKind::Const(_) => self,
             ExpKind::Binary(op, lhs, rhs) => {
+                // XXX: Man! Why do your guys delele this part of code? 
+                // It is helpful, thx to TA, love you
+                let sub_expect = if matches!(op, BinaryOp::And | BinaryOp::Or) {
+                    Some(Type::bool())
+                } else {
+                    None
+                };
+
                 // Type check the left and right hand side expressions
-                let mut lhs = lhs.type_check(None, symtable);
-                let mut rhs = rhs.type_check(None, symtable);
+                let mut lhs = lhs.type_check(sub_expect.as_ref(), symtable);
+                let mut rhs = rhs.type_check(sub_expect.as_ref(), symtable);
 
                 let lhs_ty = lhs.ty();
                 let rhs_ty = rhs.ty();
@@ -965,11 +973,6 @@ impl Exp {
                         } else if ty.is_float() {
                             exp = Exp {
                                 kind: ExpKind::Binary(BinaryOp::Ne, Box::new(exp), Box::new(Exp::const_(ComptimeVal::float(0.0)))),
-                                ty: Some(Type::bool()),
-                            }
-                        } else if ty.is_bool() {
-                            exp = Exp {
-                                kind: ExpKind::Unary(UnaryOp::Not, Box::new(exp)),
                                 ty: Some(Type::bool()),
                             }
                         } else {
