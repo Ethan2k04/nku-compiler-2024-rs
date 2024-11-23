@@ -1021,6 +1021,18 @@ impl IrGen for Stmt {
                     }
                 }
 
+                // 如果then块没有指令，添加一个无条件跳转到merge块
+                if irgen.curr_block.unwrap().tail(&irgen.ctx)
+                    == irgen.curr_block.unwrap().head(&irgen.ctx)
+                {
+                    let jump = Inst::br(&mut irgen.ctx, merge_block);
+                    irgen
+                        .curr_block
+                        .unwrap()
+                        .push_back(&mut irgen.ctx, jump)
+                        .unwrap();
+                }
+
                 // 生成else分支代码(如果有)
                 if let Some(else_stmt) = &if_stmt.else_ {
                     let else_block = else_block.unwrap();
@@ -1079,7 +1091,15 @@ impl IrGen for Stmt {
 
                 // 4. 生成条件判断代码
                 irgen.curr_block = Some(loop_entry);
-                let cond_val = irgen.gen_local_expr(&while_stmt.cond).unwrap();
+                let mut cond_val = irgen.gen_local_expr(&while_stmt.cond).unwrap();
+
+                if !cond_val.ty(&irgen.ctx).is_i1(&irgen.ctx) {
+                    // 如果条件不是i1类型，需要进行类型转换
+                    let i1_ty = Ty::i1(&mut irgen.ctx);
+                    let trunc_to_i1 = Inst::cast(&mut irgen.ctx, CastOp::Trunc, cond_val, i1_ty);
+                    loop_entry.push_back(&mut irgen.ctx, trunc_to_i1).unwrap();
+                    cond_val = trunc_to_i1.result(&irgen.ctx).unwrap();
+                }
 
                 // 5. 根据条件跳转到循环体或退出块
                 let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, loop_body, loop_exit);
@@ -1120,6 +1140,12 @@ impl IrGen for Stmt {
                     .push_back(&mut irgen.ctx, loop_exit)
                     .expect("Failed to append loop exit block");
                 irgen.curr_block = Some(loop_exit);
+
+                // hack: 如果退出块没有指令，LLVM会报错，这里添加一个nop指令
+                // I have no idea, but I'm deeply shocked
+                let i1_ty = Ty::i1(&mut irgen.ctx);
+                let nop = Inst::alloca(&mut irgen.ctx, i1_ty);
+                loop_exit.push_back(&mut irgen.ctx, nop).unwrap();
             }
             Stmt::Break => {
                 // TODO✔: Implement break statement
