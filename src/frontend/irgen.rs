@@ -9,7 +9,8 @@ use super::symbol_table::{SymbolEntry, SymbolTable};
 use super::types::{Type, TypeKind as Tk};
 use crate::infra::linked_list::LinkedListContainer;
 use crate::ir::{
-    self, Block, ConstantValue, Context, Func, Global, Inst, TargetInfo, Ty, TyData, Value,
+    self, Block, CastOp, ConstantValue, Context, FloatBinaryOp, FloatCmpCond, Func, Global, Inst,
+    IntBinaryOp, IntCmpCond, TargetInfo, Ty, Value,
 };
 
 /// Generate IR from the AST.
@@ -152,6 +153,8 @@ impl IrGenContext {
                 | Bo::Ne
                 | Bo::And
                 | Bo::Or => {
+                    let is_float = lhs.ty().is_float();
+
                     let lhs = self.gen_local_expr(lhs).unwrap(); // Generate lhs
                     let rhs = self.gen_local_expr(rhs).unwrap(); // Generate rhs
 
@@ -160,44 +163,222 @@ impl IrGenContext {
 
                     let inst = match op {
                         // Generate add instruction
-                        Bo::Add => Inst::add(&mut self.ctx, lhs, rhs, lhs_ty),
-                        // TODO✔: Implement other binary operations
-                        // XXX: Not sure if we need to implement all of them
-                        Bo::Sub => Inst::sub(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Mul => Inst::mul(&mut self.ctx, lhs, rhs, lhs_ty),
-                        Bo::Div => {
-                            let inst = if let Some(is_positive) = lhs.is_positive(&self.ctx) {
-                                if is_positive && rhs.is_positive(&self.ctx).unwrap_or(true) {
-                                    Inst::udiv(&mut self.ctx, lhs, rhs, lhs_ty)
-                                } else {
-                                    Inst::sdiv(&mut self.ctx, lhs, rhs, lhs_ty)
-                                }
+                        // TODO✔: Implement float binary operations
+                        Bo::Add => {
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FAdd,
+                                    lhs_ty,
+                                )
                             } else {
-                                Inst::sdiv(&mut self.ctx, lhs, rhs, lhs_ty)
-                            };
-                            inst
+                                Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::Add, lhs_ty)
+                            }
+                        }
+                        Bo::Sub => {
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FSub,
+                                    lhs_ty,
+                                )
+                            } else {
+                                Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::Sub, lhs_ty)
+                            }
+                        }
+                        Bo::Mul => {
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FMul,
+                                    lhs_ty,
+                                )
+                            } else {
+                                Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::Mul, lhs_ty)
+                            }
+                        }
+                        Bo::Div => {
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FDiv,
+                                    lhs_ty,
+                                )
+                            } else {
+                                Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::SDiv, lhs_ty)
+                            }
                         }
                         Bo::Mod => {
-                            let inst = if let Some(is_positive) = lhs.is_positive(&self.ctx) {
-                                if is_positive && rhs.is_positive(&self.ctx).unwrap_or(true) {
-                                    Inst::urem(&mut self.ctx, lhs, rhs, lhs_ty)
-                                } else {
-                                    Inst::srem(&mut self.ctx, lhs, rhs, lhs_ty)
-                                }
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FRem,
+                                    lhs_ty,
+                                )
                             } else {
-                                Inst::srem(&mut self.ctx, lhs, rhs, lhs_ty)
-                            };
-                            inst
+                                Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::SRem, lhs_ty)
+                            }
                         }
-                        Bo::Eq => Inst::eq(&mut self.ctx, lhs, rhs, i1_ty),
-                        Bo::Ne => Inst::ne(&mut self.ctx, lhs, rhs, i1_ty),
-                        Bo::Lt => Inst::lt(&mut self.ctx, lhs, rhs, i1_ty),
-                        Bo::Le => Inst::le(&mut self.ctx, lhs, rhs, i1_ty),
-                        Bo::Gt => Inst::gt(&mut self.ctx, lhs, rhs, i1_ty),
-                        Bo::Ge => Inst::ge(&mut self.ctx, lhs, rhs, i1_ty),
-                        // TODO✔: Implement logical and/or
-                        Bo::And => Inst::and(&mut self.ctx, lhs, rhs, i1_ty),
-                        Bo::Or => Inst::or(&mut self.ctx, lhs, rhs, i1_ty),
+                        Bo::Eq => {
+                            let i1_ty = Ty::i1(&mut self.ctx);
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FCmp {
+                                        cond: FloatCmpCond::UEq,
+                                    },
+                                    i1_ty, // 使用i1类型作为结果类型
+                                )
+                            } else {
+                                Inst::int_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    IntBinaryOp::ICmp {
+                                        cond: IntCmpCond::Eq,
+                                    },
+                                    i1_ty, // 使用i1类型作为结果类型
+                                )
+                            }
+                        }
+                        Bo::Ne => {
+                            let i1_ty = Ty::i1(&mut self.ctx);
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FCmp {
+                                        cond: FloatCmpCond::UNe,
+                                    },
+                                    i1_ty,
+                                )
+                            } else {
+                                Inst::int_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    IntBinaryOp::ICmp {
+                                        cond: IntCmpCond::Ne,
+                                    },
+                                    i1_ty,
+                                )
+                            }
+                        }
+                        Bo::Lt => {
+                            let i1_ty = Ty::i1(&mut self.ctx);
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FCmp {
+                                        cond: FloatCmpCond::ULt,
+                                    },
+                                    i1_ty,
+                                )
+                            } else {
+                                Inst::int_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    IntBinaryOp::ICmp {
+                                        cond: IntCmpCond::Slt,
+                                    },
+                                    i1_ty,
+                                )
+                            }
+                        }
+                        Bo::Le => {
+                            let i1_ty = Ty::i1(&mut self.ctx);
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    FloatBinaryOp::FCmp {
+                                        cond: FloatCmpCond::ULe,
+                                    },
+                                    i1_ty,
+                                )
+                            } else {
+                                Inst::int_binary(
+                                    &mut self.ctx,
+                                    lhs,
+                                    rhs,
+                                    IntBinaryOp::ICmp {
+                                        cond: IntCmpCond::Sle,
+                                    },
+                                    i1_ty,
+                                )
+                            }
+                        }
+                        Bo::Gt => {
+                            let i1_ty = Ty::i1(&mut self.ctx);
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    rhs,
+                                    lhs,
+                                    FloatBinaryOp::FCmp {
+                                        cond: FloatCmpCond::ULt,
+                                    },
+                                    i1_ty,
+                                )
+                            } else {
+                                Inst::int_binary(
+                                    &mut self.ctx,
+                                    rhs,
+                                    lhs,
+                                    IntBinaryOp::ICmp {
+                                        cond: IntCmpCond::Slt,
+                                    },
+                                    i1_ty,
+                                )
+                            }
+                        }
+                        Bo::Ge => {
+                            let i1_ty = Ty::i1(&mut self.ctx);
+                            if is_float {
+                                Inst::float_binary(
+                                    &mut self.ctx,
+                                    rhs,
+                                    lhs,
+                                    FloatBinaryOp::FCmp {
+                                        cond: FloatCmpCond::ULe,
+                                    },
+                                    i1_ty,
+                                )
+                            } else {
+                                Inst::int_binary(
+                                    &mut self.ctx,
+                                    rhs,
+                                    lhs,
+                                    IntBinaryOp::ICmp {
+                                        cond: IntCmpCond::Sle,
+                                    },
+                                    i1_ty,
+                                )
+                            }
+                        }
+                        Bo::And => {
+                            Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::And, lhs_ty)
+                        }
+                        Bo::Or => {
+                            Inst::int_binary(&mut self.ctx, lhs, rhs, IntBinaryOp::Or, lhs_ty)
+                        }
                     };
 
                     // Push the instruction to the current block
@@ -206,16 +387,56 @@ impl IrGenContext {
                 }
             },
             // Unary operations -> generate the operation
-            ExpKind::Unary(op, _) => match op {
-                // TODO: Implement unary operations
+            ExpKind::Unary(op, exp) => match op {
+                // TODO✔: Implement float unary operations
                 UnaryOp::Neg => {
-                    todo!("implement neg");
+                    let operand = self.gen_local_expr(exp).unwrap();
+                    let is_float = exp.ty().is_float();
+                    if is_float {
+                        let f32_ty = Ty::f32(&mut self.ctx);
+                        let zero = Value::f32(&mut self.ctx, 0.0);
+                        let sub = Inst::float_binary(
+                            &mut self.ctx,
+                            zero,    // 被减数(0.0)
+                            operand, // 减数(操作数)
+                            FloatBinaryOp::FSub,
+                            f32_ty,
+                        );
+                        curr_block
+                            .push_back(&mut self.ctx, sub)
+                            .expect("Failed to insert fsub instruction for float negation");
+                        Some(sub.result(&self.ctx).unwrap())
+                    } else {
+                        // %neg = sub i32 0, %value
+                        let i32_ty = ir::Ty::i32(&mut self.ctx);
+                        let zero = Value::i32(&mut self.ctx, 0);
+                        let sub = Inst::int_binary(
+                            &mut self.ctx,
+                            zero,    // 被减数(0)
+                            operand, // 减数(操作数)
+                            IntBinaryOp::Sub,
+                            i32_ty,
+                        );
+                        curr_block
+                            .push_back(&mut self.ctx, sub)
+                            .expect("Failed to insert sub instruction for negation");
+                        Some(sub.result(&self.ctx).unwrap())
+                    }
                 }
                 UnaryOp::Not => {
-                    todo!("implement not");
+                    let operand = self.gen_local_expr(exp).unwrap();
+                    let i1_ty = Ty::i1(&mut self.ctx);
+                    let true_val = Value::i1(&mut self.ctx, true);
+                    let xor =
+                        Inst::int_binary(&mut self.ctx, operand, true_val, IntBinaryOp::Xor, i1_ty);
+                    curr_block
+                        .push_back(&mut self.ctx, xor)
+                        .expect("Failed to insert xor instruction for logical not");
+                    Some(xor.result(&self.ctx).unwrap())
                 }
                 UnaryOp::Pos => {
-                    todo!("implement Pos");
+                    // do nothing
+                    self.gen_local_expr(exp)
                 }
             },
             // LValues -> Get the value
@@ -270,22 +491,151 @@ impl IrGenContext {
                 curr_block.push_back(&mut self.ctx, init_list_inst).unwrap();
                 Some(init_list_inst.result(&self.ctx).unwrap())
             }
-            ExpKind::Coercion(_) => {
-                // TODO: Implement coercion generation
-                todo!("implement coercion");
+            ExpKind::Coercion(expr) => {
+                // TODO✔: Implement coercion generation
+                let val = self.gen_local_expr(expr).unwrap();
+                let from_ty = expr.ty().kind();
+                let to_ty = exp.ty().kind();
+                match (from_ty, to_ty) {
+                    (Tk::Bool, Tk::Int) => {
+                        let i32_ty = Ty::i32(&mut self.ctx);
+                        let cast = Inst::cast(&mut self.ctx, CastOp::Zext, val, i32_ty);
+                        curr_block.push_back(&mut self.ctx, cast).unwrap();
+                        Some(cast.result(&self.ctx).unwrap())
+                    }
+                    (Tk::Int, Tk::Bool) => {
+                        let i1_ty = Ty::i1(&mut self.ctx);
+                        let cast = Inst::cast(&mut self.ctx, CastOp::Trunc, val, i1_ty);
+                        curr_block.push_back(&mut self.ctx, cast).unwrap();
+                        Some(cast.result(&self.ctx).unwrap())
+                    }
+                    (Tk::Int, Tk::Float) => {
+                        let f32_ty = Ty::f32(&mut self.ctx);
+                        let cast = Inst::cast(&mut self.ctx, CastOp::SiToFp, val, f32_ty);
+                        curr_block.push_back(&mut self.ctx, cast).unwrap();
+                        Some(cast.result(&self.ctx).unwrap())
+                    }
+                    (Tk::Float, Tk::Int) => {
+                        let i32_ty = Ty::i32(&mut self.ctx);
+                        let cast = Inst::cast(&mut self.ctx, CastOp::FpToSi, val, i32_ty);
+                        curr_block.push_back(&mut self.ctx, cast).unwrap();
+                        Some(cast.result(&self.ctx).unwrap())
+                    }
+                    (Tk::Bool, Tk::Float) => {
+                        // bool -> int -> float
+                        let i32_ty = Ty::i32(&mut self.ctx);
+                        let f32_ty = Ty::f32(&mut self.ctx);
+
+                        // 先创建 zext 指令
+                        let zext = Inst::cast(&mut self.ctx, CastOp::Zext, val, i32_ty);
+                        curr_block.push_back(&mut self.ctx, zext).unwrap();
+
+                        // 先获取 zext 的结果
+                        let zext_result = zext.result(&self.ctx).unwrap();
+                        // 再创建 sitofp 指令
+                        let to_float =
+                            Inst::cast(&mut self.ctx, CastOp::SiToFp, zext_result, f32_ty);
+                        curr_block.push_back(&mut self.ctx, to_float).unwrap();
+
+                        Some(to_float.result(&self.ctx).unwrap())
+                    }
+                    (Tk::Float, Tk::Bool) => {
+                        // float -> int -> bool
+                        let i32_ty = Ty::i32(&mut self.ctx);
+                        let i1_ty = Ty::i1(&mut self.ctx);
+
+                        // 先创建 fptosi 指令
+                        let fptosi = Inst::cast(&mut self.ctx, CastOp::FpToSi, val, i32_ty);
+                        curr_block.push_back(&mut self.ctx, fptosi).unwrap();
+
+                        // 先获取 fptosi 的结果
+                        let fptosi_result = fptosi.result(&self.ctx).unwrap();
+                        // 再创建 trunc 指令
+                        let to_bool =
+                            Inst::cast(&mut self.ctx, CastOp::Trunc, fptosi_result, i1_ty);
+                        curr_block.push_back(&mut self.ctx, to_bool).unwrap();
+
+                        Some(to_bool.result(&self.ctx).unwrap())
+                    }
+                    (Tk::Array(..), Tk::Pointer(_)) => self.gen_local_expr(expr),
+                    _ => unreachable!("invalid coercion: {:#?} -> {:#?}", from_ty, to_ty),
+                }
             }
-            ExpKind::FuncCall(FuncCall { .. }) => {
-                // TODO: Implement function call generation
-                todo!("implement call");
+            ExpKind::FuncCall(FuncCall { ident, args }) => {
+                // TODO✔: Implement function call generation
+                let ir_args = args
+                    .iter()
+                    .map(|arg| self.gen_local_expr(arg).unwrap())
+                    .collect();
+
+                let ty = exp.ty();
+                let ir_ty = self.gen_type(ty);
+                let call = Inst::call(&mut self.ctx, ident.clone(), ir_args, ir_ty);
+                curr_block
+                    .push_back(&mut self.ctx, call)
+                    .expect("Failed to insert call instruction");
+
+                if !ty.is_void() {
+                    call.result(&self.ctx)
+                } else {
+                    None
+                }
             }
         }
     }
 
     // Generate the system library function definitions.
     fn gen_sysylib(&mut self) {
-        // TODO: Implement gen_sysylib
+        // TODO✔: Implement gen_sysylib
         // Since the system library is linked in the linking phase, we just need
         // to generate declarations here.
+        // 1. 首先注册所有系统库函数到符号表
+        self.symtable.register_sysylib();
+
+        // 2. 创建基本类型，后面会用到
+        let void = Ty::void(&mut self.ctx);
+        let i32 = Ty::i32(&mut self.ctx);
+        let f32 = Ty::f32(&mut self.ctx);
+        let ptr = Ty::ptr(&mut self.ctx);
+
+        // 3. 为每个系统库函数生成函数声明
+        let fn_decls = vec![
+            ("getint", vec![], i32),             // int getint()
+            ("putint", vec![i32], void),         // void putint(int)
+            ("getch", vec![], i32),              // int getch()
+            ("putch", vec![i32], void),          // void putch(int)
+            ("getfloat", vec![], f32),           // float getfloat()
+            ("putfloat", vec![f32], void),       // void putfloat(float)
+            ("getarray", vec![ptr], i32),        // int getarray(int[])
+            ("putarray", vec![i32, ptr], void),  // void putarray(int, int[])
+            ("getfarray", vec![ptr], i32),       // int getfarray(float[])
+            ("putfarray", vec![i32, ptr], void), // void putfarray(int, float[])
+            ("starttime", vec![i32], void),      // void _sysy_starttime(int)
+            ("stoptime", vec![i32], void),       // void _sysy_stoptime(int)
+        ];
+
+        // 4. 生成函数定义
+        for (name, param_tys, ret_ty) in fn_decls {
+            let func = Func::declare(&mut self.ctx, name.to_string(), ret_ty);
+
+            // 为每个参数添加类型
+            for param_ty in param_tys {
+                func.add_param(&mut self.ctx, param_ty);
+            }
+        }
+
+        // 5. 生成内存操作函数(来自libc)
+        // void* memset(void* str, int c, size_t n)
+        let memset = Func::declare(&mut self.ctx, "memset".to_string(), void);
+        memset.add_param(&mut self.ctx, ptr); // dest
+        memset.add_param(&mut self.ctx, i32); // value
+        memset.add_param(&mut self.ctx, i32); // size
+
+        // void* memcpy(void* dest, const void* src, size_t n)
+        let memcpy = Func::declare(&mut self.ctx, "memcpy".to_string(), void);
+        memcpy.add_param(&mut self.ctx, ptr); // dest
+        memcpy.add_param(&mut self.ctx, ptr); // src
+        memcpy.add_param(&mut self.ctx, i32); // size
     }
 }
 
@@ -469,6 +819,16 @@ impl IrGen for FuncDef {
         // generate body
         self.body.irgen(irgen);
 
+        // 如果没有返回语句，添加一个
+        if let Some(curr) = irgen.curr_block {
+            if let Some(last_inst) = curr.tail(&irgen.ctx) {
+                if !last_inst.is_terminator(&irgen.ctx) {
+                    let br = Inst::br(&mut irgen.ctx, ret_block);
+                    curr.push_back(&mut irgen.ctx, br).unwrap();
+                }
+            }
+        }
+
         // append return block
         func.push_back(&mut irgen.ctx, ret_block).unwrap();
 
@@ -607,136 +967,188 @@ impl IrGen for Stmt {
             }
             Stmt::Block(block) => block.irgen(irgen),
             Stmt::If(if_stmt) => {
-                // TODO✔: Implement if statement
-                let curr_block = irgen.curr_block.unwrap();
-                let IfStmt { cond, then, else_ } = if_stmt.as_ref();
-                let cond_val = irgen.gen_local_expr(&cond).unwrap();
-                let then_block = Block::new(&mut irgen.ctx);
-                let else_block = Block::new(&mut irgen.ctx);
-                let merge_block = Block::new(&mut irgen.ctx);
-                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, then_block, else_block);
-                curr_block.push_back(&mut irgen.ctx, cond_br).unwrap();
+                let mut cond = irgen.gen_local_expr(&if_stmt.cond).unwrap();
 
-                // generate IR in then_block
-                irgen.curr_block = Some(then_block);
-                then.irgen(irgen);
-                irgen
-                    .curr_func
-                    .unwrap()
-                    .push_back(&mut irgen.ctx, then_block)
-                    .unwrap();
-
-                // XXX: Maybe we could optimize this
-                let br_to_merge = Inst::br(&mut irgen.ctx, merge_block);
-                irgen
-                    .curr_block
-                    .unwrap()
-                    .push_back(&mut irgen.ctx, br_to_merge)
-                    .unwrap();
-
-                // generate IR in else_block (if exists)
-                irgen.curr_block = Some(else_block);
-                if let Some(else_stmt) = else_ {
-                    else_stmt.irgen(irgen);
+                if !cond.ty(&irgen.ctx).is_i1(&irgen.ctx) {
+                    // 如果条件不是i1类型，需要进行类型转换
+                    let i1_ty = Ty::i1(&mut irgen.ctx);
+                    let trunc_to_i1 = Inst::cast(&mut irgen.ctx, CastOp::Trunc, cond, i1_ty);
+                    curr_block.push_back(&mut irgen.ctx, trunc_to_i1).unwrap();
+                    cond = trunc_to_i1.result(&irgen.ctx).unwrap();
                 }
 
-                // else_block jump to merge_block
-                // XXX: Maybe we could optimize this
-                let br_to_merge = Inst::br(&mut irgen.ctx, merge_block);
-                irgen
-                    .curr_block
-                    .unwrap()
-                    .push_back(&mut irgen.ctx, br_to_merge)
-                    .unwrap();
-                irgen
-                    .curr_func
-                    .unwrap()
-                    .push_back(&mut irgen.ctx, else_block)
-                    .unwrap();
+                let curr_block = irgen.curr_block.unwrap();
+                let curr_func = irgen.curr_func.unwrap();
 
-                // update curr_block as merge block
+                let then_block = Block::new(&mut irgen.ctx);
+                let merge_block = Block::new(&mut irgen.ctx);
+                let else_block = if if_stmt.else_.is_some() {
+                    Some(Block::new(&mut irgen.ctx))
+                } else {
+                    None
+                };
+
+                curr_func.push_back(&mut irgen.ctx, then_block).unwrap();
+                if let Some(else_block) = else_block {
+                    curr_func.push_back(&mut irgen.ctx, else_block).unwrap();
+                }
+                curr_func.push_back(&mut irgen.ctx, merge_block).unwrap();
+
+                // 生成条件跳转
+                let br = Inst::cond_br(
+                    &mut irgen.ctx,
+                    cond,
+                    then_block,
+                    else_block.unwrap_or(merge_block),
+                );
+                curr_block.push_back(&mut irgen.ctx, br).unwrap();
+
+                let mut is_terminator_then = false;
+                let mut is_terminator_else = false;
+                // 生成then分支代码
+                irgen.curr_block = Some(then_block);
+                if_stmt.then.irgen(irgen);
+                // 检查then块是否已经有终结指令
+                if let Some(curr) = irgen.curr_block {
+                    if let Some(last_inst) = curr.tail(&irgen.ctx) {
+                        if !last_inst.is_terminator(&irgen.ctx) {
+                            // 如果没有终结指令，添加跳转到merge块的指令
+                            let br = Inst::br(&mut irgen.ctx, merge_block);
+                            curr.push_back(&mut irgen.ctx, br).unwrap();
+                        } else {
+                            is_terminator_then = true;
+                        }
+                    }
+                }
+
+                // 生成else分支代码(如果有)
+                if let Some(else_stmt) = &if_stmt.else_ {
+                    let else_block = else_block.unwrap();
+                    irgen.curr_block = Some(else_block);
+                    else_stmt.irgen(irgen);
+                    // 检查else块是否已经有终结指令
+                    if let Some(curr) = irgen.curr_block {
+                        if let Some(last_inst) = curr.tail(&irgen.ctx) {
+                            if !last_inst.is_terminator(&irgen.ctx) {
+                                // 如果没有终结指令，添加跳转到merge块的指令
+                                let br = Inst::br(&mut irgen.ctx, merge_block);
+                                curr.push_back(&mut irgen.ctx, br).unwrap();
+                            } else {
+                                is_terminator_else = true;
+                            }
+                        }
+                    }
+                } else {
+                    // 如果没有else分支，条件跳转已经处理了跳转到merge块的情况
+                }
+
+                // 如果then和else块都有终结指令，merge 块添加一个无条件跳转
+                if is_terminator_then && is_terminator_else {
+                    let br = Inst::br(&mut irgen.ctx, irgen.curr_ret_block.unwrap());
+                    merge_block.push_back(&mut irgen.ctx, br).unwrap();
+                } else {
+                    // hack: 如果merge块没有指令，LLVM会报错，这里添加一个nop指令
+                    let i1_ty = Ty::i1(&mut irgen.ctx);
+                    let nop = Inst::alloca(&mut irgen.ctx, i1_ty);
+                    merge_block.push_back(&mut irgen.ctx, nop).unwrap();
+                }
+
                 irgen.curr_block = Some(merge_block);
-                irgen
-                    .curr_func
-                    .unwrap()
-                    .push_back(&mut irgen.ctx, merge_block)
-                    .unwrap();
             }
             Stmt::While(while_stmt) => {
-                // TODO✔: Implement while statement
-                let WhileStmt { cond, body } = while_stmt.as_ref();
-                let cond_val = irgen.gen_local_expr(&cond).unwrap();
-                let while_block = Block::new(&mut irgen.ctx);
-                let merge_block = Block::new(&mut irgen.ctx);
-                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, while_block, merge_block);
+                // TODO✔: Implement while statement maybe something wrong here
+                // 1. 创建所需的基本块
+                let loop_entry = Block::new(&mut irgen.ctx); // 条件判断块
+                let loop_body = Block::new(&mut irgen.ctx); // 循环体块
+                let loop_exit = Block::new(&mut irgen.ctx); // 退出块
 
-                // push current block and loop entry/exit block to stack
-                irgen.loop_entry_stack.push(while_block.clone());
-                irgen.loop_exit_stack.push(merge_block.clone());
-
-                // generate IR for cond_br
+                // 2. 从当前块跳转到条件判断块
+                let br = Inst::br(&mut irgen.ctx, loop_entry);
                 irgen
                     .curr_block
                     .unwrap()
-                    .push_back(&mut irgen.ctx, cond_br)
-                    .unwrap();
+                    .push_back(&mut irgen.ctx, br)
+                    .expect("Failed to insert branch to loop entry block");
 
-                // generate IR in while_block
-                irgen.curr_block = Some(while_block);
-                body.irgen(irgen);
+                // 3. 将条件判断块加入函数
                 irgen
                     .curr_func
                     .unwrap()
-                    .push_back(&mut irgen.ctx, while_block)
-                    .unwrap();
+                    .push_back(&mut irgen.ctx, loop_entry)
+                    .expect("Failed to append loop entry block");
 
-                // while_block jump to while_block or merge_block
-                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, while_block, merge_block);
+                // 4. 生成条件判断代码
+                irgen.curr_block = Some(loop_entry);
+                let cond_val = irgen.gen_local_expr(&while_stmt.cond).unwrap();
+
+                // 5. 根据条件跳转到循环体或退出块
+                let cond_br = Inst::cond_br(&mut irgen.ctx, cond_val, loop_body, loop_exit);
+                loop_entry
+                    .push_back(&mut irgen.ctx, cond_br)
+                    .expect("Failed to insert conditional branch");
+
+                // 6. 生成循环体代码
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, loop_body)
+                    .expect("Failed to append loop body block");
+                irgen.curr_block = Some(loop_body);
+
+                // 保存当前循环的入口和出口块,用于break和continue
+                irgen.loop_entry_stack.push(loop_entry);
+                irgen.loop_exit_stack.push(loop_exit);
+
+                while_stmt.body.irgen(irgen); // 生成循环体的IR
+
+                // 从循环体块跳回条件判断块
+                let br_back = Inst::br(&mut irgen.ctx, loop_entry);
                 irgen
                     .curr_block
                     .unwrap()
-                    .push_back(&mut irgen.ctx, cond_br)
-                    .unwrap();
+                    .push_back(&mut irgen.ctx, br_back)
+                    .expect("Failed to insert branch back to entry");
 
-                // update curr_block as merge block
-                irgen.curr_block = Some(merge_block);
-                irgen
-                    .curr_func
-                    .unwrap()
-                    .push_back(&mut irgen.ctx, merge_block)
-                    .unwrap();
-
-                // pop top elem in stack
+                // 恢复loop stack
                 irgen.loop_entry_stack.pop();
                 irgen.loop_exit_stack.pop();
+
+                // 7. 最后设置当前块为退出块
+                irgen
+                    .curr_func
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, loop_exit)
+                    .expect("Failed to append loop exit block");
+                irgen.curr_block = Some(loop_exit);
             }
             Stmt::Break => {
                 // TODO✔: Implement break statement
-                if let Some(last_exit_block) = irgen.loop_exit_stack.last().cloned() {
-                    let br_to_exit = Inst::br(&mut irgen.ctx, last_exit_block);
+                // 检查是否在循环中
+                let exit_block = irgen.loop_exit_stack.last().expect("break outside of loop");
 
-                    irgen
-                        .curr_block
-                        .unwrap()
-                        .push_back(&mut irgen.ctx, br_to_exit)
-                        .unwrap();
-                } else {
-                    panic!("'break' used outside of a loop");
-                }
+                // 生成跳转指令到循环的退出块
+                let br = Inst::br(&mut irgen.ctx, *exit_block);
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, br)
+                    .expect("Failed to insert break branch instruction");
             }
             Stmt::Continue => {
                 // TODO✔: Implement continue statement
-                if let Some(last_entry_block) = irgen.loop_entry_stack.last().cloned() {
-                    let br_to_continue = Inst::br(&mut irgen.ctx, last_entry_block);
+                // 检查是否在循环中
+                let entry_block = irgen
+                    .loop_entry_stack
+                    .last()
+                    .expect("continue outside of loop");
 
-                    irgen
-                        .curr_block
-                        .unwrap()
-                        .push_back(&mut irgen.ctx, br_to_continue)
-                        .unwrap();
-                } else {
-                    panic!("'continue' used outside of a loop");
-                }
+                // 生成跳转指令到循环的条件判断块
+                let br = Inst::br(&mut irgen.ctx, *entry_block);
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, br)
+                    .expect("Failed to insert continue branch instruction");
             }
             Stmt::Return(ReturnStmt { exp }) => {
                 if let Some(exp) = exp {

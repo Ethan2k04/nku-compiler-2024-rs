@@ -87,7 +87,7 @@ impl SymbolTable {
 
     /// Register SysY library functions to the symbol table.
     pub fn register_sysylib(&mut self) {
-        // TODO: Register SysY library functions to the symbol table
+        // TODO✔: Register SysY library functions to the symbol table
         assert_eq!(self.stack.len(), 1);
 
         self.insert("getint", SymbolEntry::from_ty(Type::func(vec![], Type::int())));

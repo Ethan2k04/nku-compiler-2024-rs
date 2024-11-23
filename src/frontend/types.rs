@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::{fmt, hash};
 
-// TODO: Implement the `Type` struct here.
+// TODO✔: Implement the `Type` struct here.
 
 // The type in AST
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -113,7 +113,31 @@ impl ConstantValue {
             ConstantValue::Int1 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int8 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int32 { value, .. } => s.push_str(&value.to_string()),
-            ConstantValue::Float32 { value, .. } => s.push_str(&value.to_string()),
+            ConstantValue::Float32 { value, .. } => {
+                // transfer f32 to IEEE 754 double which can be compiled by clang
+                // maybe something wrong here
+                let value64 = *value as f64;
+
+                if value64.is_nan() {
+                    s.push_str("0x7FF8000000000000");
+                    return s;
+                }
+                if value64.is_infinite() {
+                    if value64.is_sign_positive() {
+                        s.push_str("0x7FF0000000000000");
+                    } else {
+                        s.push_str("0xFFF0000000000000");
+                    }
+                    return s;
+                }
+
+                if value64.fract() == 0.0 {
+                    s.push_str(&format!("{:.1}", value64));
+                } else {
+                    let bits = value64.to_bits();
+                    s.push_str(&format!("0x{:X}", bits));
+                }
+            },
             ConstantValue::Array { elems, .. } => {
                 s.push('[');
                 for (i, elem) in elems.iter().enumerate() {
