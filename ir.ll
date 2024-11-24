@@ -19,167 +19,237 @@ declare void @memset(ptr %v11, i32 %v12, i32 %v13)
 declare void @memcpy(ptr %v14, ptr %v15, i32 %v16)
 define float @DFS(i32 %v17, float %v18, float %v19, float %v20, ptr %v21) {
 bb_0:
-	%v85 = alloca i32
-	%v83 = alloca [1005 x float]
-	%v23 = alloca float
-	%v22 = alloca i32
-	store i32 %v17, ptr %v22
-	%v26 = alloca float
-	store ptr %v22, ptr %v26
-	%v27 = load i32, ptr %v26
-	%v28 = getelementptr [1005 x float], ptr @__GLOBAL_VAR_ff, i32 0, i32 %v27
-	%v29 = alloca float
-	store float %v20, ptr %v29
-	%v30 = load float, ptr %v29
-	%v33 = alloca float
-	store ptr %v22, ptr %v33
-	%v34 = load i32, ptr %v33
-	%v35 = getelementptr [1005 x float], ptr @__GLOBAL_VAR_a, i32 0, i32 %v34
-	%v36 = load float, ptr %v35
-	%v38 = sitofp i32 3 to float
-	%v39 = alloca float
-	store float %v18, ptr %v39
-	%v40 = load float, ptr %v39
-	%v41 = fmul float %v38, %v40
-	%v43 = sitofp i32 3 to float
-	%v44 = alloca float
-	store float %v19, ptr %v44
-	%v45 = load float, ptr %v44
-	%v46 = fmul float %v43, %v45
-	%v47 = fadd float %v41, %v46
-	%v49 = sitofp i32 1 to float
-	%v50 = fadd float %v47, %v49
-	%v51 = fmul float %v36, %v50
-	%v52 = fadd float %v30, %v51
-	store float %v52, ptr %v28
-	%v54 = alloca float
-	store ptr %v22, ptr %v54
-	%v55 = load i32, ptr %v54
-	%v56 = getelementptr float, float* %v21, i32 %v55
-	%v59 = alloca float
-	store ptr %v22, ptr %v59
-	%v60 = load i32, ptr %v59
-	%v61 = getelementptr [1005 x float], ptr @__GLOBAL_VAR_a, i32 0, i32 %v60
-	%v62 = load float, ptr %v61
-	%v63 = alloca float
-	store float %v18, ptr %v63
-	%v64 = load float, ptr %v63
-	%v66 = sitofp i32 1 to float
-	%v67 = fadd float %v64, %v66
-	%v68 = fmul float %v62, %v67
-	store float %v68, ptr %v56
-	%v69 = alloca float
-	store ptr %v22, ptr %v69
-	%v70 = load i32, ptr %v69
-	%v72 = alloca float
-	store ptr @__GLOBAL_VAR_n, ptr %v72
-	%v73 = load i32, ptr %v72
-	%v74 = icmp eq i32 %v70, %v73
-	br i1 %v74, label %bb_2, label %bb_3
-bb_2:
-	%v75 = alloca float
-	store ptr %v22, ptr %v75
-	%v76 = load i32, ptr %v75
-	%v77 = sitofp i32 %v76 to float
-	%v78 = alloca float
-	store ptr %v21, ptr %v78
-	%v79 = load ptr, ptr %v78
-	call void @putfarray(float %v77, ptr %v79)
-	%v80 = alloca float
-	store float %v19, ptr %v80
-	%v81 = load float, ptr %v80
-	store float %v81, ptr %v23
-	br label %bb_1
-bb_3:
-	%v82 = alloca i1
-	store [1005 x float] undef, ptr %v83
-	store i32 0, ptr %v85
-	br label %bb_4
-bb_4:
-	%v87 = alloca float
-	store ptr %v85, ptr %v87
-	%v88 = load i32, ptr %v87
-	%v90 = alloca float
-	store ptr @__GLOBAL_VAR_n, ptr %v90
-	%v91 = load i32, ptr %v90
-	%v92 = icmp slt i32 %v88, %v91
-	br i1 %v92, label %bb_5, label %bb_6
-bb_5:
-	%v94 = alloca float
-	store ptr %v85, ptr %v94
-	%v95 = load i32, ptr %v94
-	%v96 = getelementptr [1005 x float], ptr %v83, i32 0, i32 %v95
-	%v98 = alloca float
-	store ptr %v85, ptr %v98
-	%v99 = load i32, ptr %v98
-	%v100 = getelementptr float, float* %v21, i32 %v99
-	%v101 = load float, ptr %v100
-	%v102 = alloca float
-	store float %v18, ptr %v102
-	%v103 = load float, ptr %v102
-	%v104 = fadd float %v101, %v103
-	%v105 = alloca float
-	store float %v19, ptr %v105
-	%v106 = load float, ptr %v105
-	%v107 = fadd float %v104, %v106
-	%v108 = alloca float
-	store float %v20, ptr %v108
-	%v109 = load float, ptr %v108
-	%v110 = fadd float %v107, %v109
-	store float %v110, ptr %v96
-	%v111 = alloca float
-	store ptr %v85, ptr %v111
-	%v112 = load i32, ptr %v111
-	%v114 = add i32 %v112, 1
-	store i32 %v114, ptr %v85
-	br label %bb_4
-bb_6:
-	%v115 = alloca i1
-	%v116 = alloca float
-	store ptr %v22, ptr %v116
-	%v117 = load i32, ptr %v116
-	%v119 = add i32 %v117, 1
-	%v121 = alloca float
-	store ptr %v22, ptr %v121
-	%v122 = load i32, ptr %v121
-	%v123 = getelementptr float, float* %v21, i32 %v122
-	%v124 = load float, ptr %v123
-	%v127 = alloca float
-	store ptr %v22, ptr %v127
-	%v128 = load i32, ptr %v127
-	%v129 = getelementptr [1005 x float], ptr @__GLOBAL_VAR_a, i32 0, i32 %v128
-	%v130 = load float, ptr %v129
-	%v131 = alloca float
-	store float %v18, ptr %v131
-	%v132 = load float, ptr %v131
-	%v134 = sitofp i32 2 to float
-	%v135 = alloca float
-	store float %v19, ptr %v135
-	%v136 = load float, ptr %v135
-	%v137 = fmul float %v134, %v136
-	%v138 = fadd float %v132, %v137
-	%v140 = sitofp i32 1 to float
-	%v141 = fadd float %v138, %v140
-	%v142 = fmul float %v130, %v141
-	%v145 = alloca float
-	store ptr %v22, ptr %v145
-	%v146 = load i32, ptr %v145
-	%v147 = getelementptr [1005 x float], ptr @__GLOBAL_VAR_ff, i32 0, i32 %v146
-	%v148 = load float, ptr %v147
-	%v149 = call float  @DFS(i32 %v119, float %v124, float %v142, float %v148, ptr %v83)
-	store float %v149, ptr %v23
+	%v20 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 0
+	%v24 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 0
+	%v25 = load i32, ptr %v24
+	%v27 = add i32 %v25, 2
+	store i32 %v27, ptr %v20
+	%v31 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 1
+	%v35 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 1
+	%v36 = load i32, ptr %v35
+	%v38 = add i32 %v36, 2
+	store i32 %v38, ptr %v31
+	%v42 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v46 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v47 = load i32, ptr %v46
+	%v49 = add i32 %v47, 2
+	store i32 %v49, ptr %v42
 	br label %bb_1
 bb_1:
-	%v150 = load float, ptr %v23
-	ret float %v150
+	ret void
+}
+define void @mody() {
+bb_2:
+	%v53 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 0
+	%v57 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 0
+	%v58 = load i32, ptr %v57
+	%v60 = add i32 %v58, 2
+	store i32 %v60, ptr %v53
+	%v64 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v68 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v69 = load i32, ptr %v68
+	%v71 = add i32 %v69, 2
+	store i32 %v71, ptr %v64
+	%v75 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v79 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v80 = load i32, ptr %v79
+	%v82 = add i32 %v80, 2
+	store i32 %v82, ptr %v75
+	br label %bb_3
+bb_3:
+	ret void
+}
+define void @refx() {
+bb_4:
+	%v87 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 0
+	%v88 = load i32, ptr %v87
+	%v92 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 1
+	%v93 = load i32, ptr %v92
+	%v94 = add i32 %v88, %v93
+	%v98 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v99 = load i32, ptr %v98
+	%v100 = add i32 %v94, %v99
+	store i32 %v100, ptr @__GLOBAL_VAR_d
+	br label %bb_5
+bb_5:
+	ret void
+}
+define void @refy() {
+bb_6:
+	%v105 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 0
+	%v106 = load i32, ptr %v105
+	%v110 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v111 = load i32, ptr %v110
+	%v112 = add i32 %v106, %v111
+	%v116 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v117 = load i32, ptr %v116
+	%v118 = add i32 %v112, %v117
+	store i32 %v118, ptr @__GLOBAL_VAR_d
+	br label %bb_7
+bb_7:
+	ret void
+}
+define void @modxrefy() {
+bb_8:
+	%v122 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 0
+	%v126 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 0
+	%v127 = load i32, ptr %v126
+	%v129 = add i32 %v127, 3
+	store i32 %v129, ptr %v122
+	%v133 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 1
+	%v137 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v138 = load i32, ptr %v137
+	%v140 = add i32 %v138, 4
+	store i32 %v140, ptr %v133
+	%v144 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v148 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v149 = load i32, ptr %v148
+	%v151 = add i32 %v149, 5
+	store i32 %v151, ptr %v144
+	br label %bb_9
+bb_9:
+	ret void
+}
+define void @modyrefx() {
+bb_10:
+	%v155 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 0
+	%v159 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 0
+	%v160 = load i32, ptr %v159
+	%v162 = add i32 %v160, 5
+	store i32 %v162, ptr %v155
+	%v166 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v170 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 1
+	%v171 = load i32, ptr %v170
+	%v173 = add i32 %v171, 6
+	store i32 %v173, ptr %v166
+	%v177 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v181 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v182 = load i32, ptr %v181
+	%v184 = add i32 %v182, 7
+	store i32 %v184, ptr %v177
+	br label %bb_11
+bb_11:
+	ret void
 }
 define i32 @main() {
-bb_7:
-	%v151 = alloca i32
-	%v153 = call float  @getfarray(ptr @__GLOBAL_VAR_a)
-	store i32 0, ptr %v151
-	br label %bb_8
-bb_8:
-	%v155 = load i32, ptr %v151
-	ret i32 %v155
+bb_12:
+	%v186 = alloca i32
+	%v185 = alloca i32
+	%v190 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v191 = load i32, ptr %v190
+	store i32 %v191, ptr %v186
+	%v195 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	store i32 3, ptr %v195
+	%v197 = load i32, ptr %v186
+	%v201 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v202 = load i32, ptr %v201
+	%v203 = add i32 %v197, %v202
+	store i32 %v203, ptr %v186
+	%v207 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	store i32 3, ptr %v207
+	%v209 = load i32, ptr %v186
+	%v213 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v214 = load i32, ptr %v213
+	%v215 = add i32 %v209, %v214
+	%v217 = load i32, ptr @__GLOBAL_VAR_d
+	%v218 = add i32 %v215, %v217
+	store i32 %v218, ptr %v186
+	store i32 5, ptr @__GLOBAL_VAR_d
+	%v221 = load i32, ptr %v186
+	%v225 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v226 = load i32, ptr %v225
+	%v227 = add i32 %v221, %v226
+	%v229 = load i32, ptr @__GLOBAL_VAR_d
+	%v230 = add i32 %v227, %v229
+	%v232 = load i32, ptr @__GLOBAL_VAR_d
+	%v233 = add i32 %v230, %v232
+	store i32 %v233, ptr %v186
+	call void @refx()
+	%v234 = load i32, ptr %v186
+	%v238 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v239 = load i32, ptr %v238
+	%v240 = add i32 %v234, %v239
+	%v242 = load i32, ptr @__GLOBAL_VAR_d
+	%v243 = add i32 %v240, %v242
+	store i32 %v243, ptr %v186
+	call void @modx()
+	%v244 = load i32, ptr %v186
+	%v248 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v249 = load i32, ptr %v248
+	%v250 = add i32 %v244, %v249
+	%v252 = load i32, ptr @__GLOBAL_VAR_d
+	%v253 = add i32 %v250, %v252
+	store i32 %v253, ptr %v186
+	call void @mody()
+	%v254 = load i32, ptr %v186
+	%v258 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v259 = load i32, ptr %v258
+	%v260 = add i32 %v254, %v259
+	%v262 = load i32, ptr @__GLOBAL_VAR_d
+	%v263 = add i32 %v260, %v262
+	store i32 %v263, ptr %v186
+	call void @modyrefx()
+	%v264 = load i32, ptr %v186
+	%v268 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v269 = load i32, ptr %v268
+	%v270 = add i32 %v264, %v269
+	%v274 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v275 = load i32, ptr %v274
+	%v276 = add i32 %v270, %v275
+	%v278 = load i32, ptr @__GLOBAL_VAR_d
+	%v279 = add i32 %v276, %v278
+	store i32 %v279, ptr %v186
+	call void @modxrefy()
+	%v280 = load i32, ptr %v186
+	%v284 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_x, i32 0, i32 2
+	%v285 = load i32, ptr %v284
+	%v286 = add i32 %v280, %v285
+	%v288 = load i32, ptr @__GLOBAL_VAR_d
+	%v289 = add i32 %v286, %v288
+	store i32 %v289, ptr %v186
+	%v290 = load i32, ptr %v186
+	%v294 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v295 = load i32, ptr %v294
+	%v296 = add i32 %v290, %v295
+	%v300 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v301 = load i32, ptr %v300
+	%v302 = add i32 %v296, %v301
+	%v304 = load i32, ptr @__GLOBAL_VAR_d
+	%v305 = add i32 %v302, %v304
+	store i32 %v305, ptr %v186
+	call void @modyrefx()
+	%v306 = load i32, ptr %v186
+	%v310 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v311 = load i32, ptr %v310
+	%v312 = add i32 %v306, %v311
+	%v316 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v317 = load i32, ptr %v316
+	%v318 = add i32 %v312, %v317
+	%v320 = load i32, ptr @__GLOBAL_VAR_d
+	%v321 = add i32 %v318, %v320
+	store i32 %v321, ptr %v186
+	call void @refy()
+	%v322 = load i32, ptr %v186
+	%v326 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 1
+	%v327 = load i32, ptr %v326
+	%v328 = add i32 %v322, %v327
+	%v332 = getelementptr [3 x i32], ptr @__GLOBAL_VAR_y, i32 0, i32 2
+	%v333 = load i32, ptr %v332
+	%v334 = add i32 %v328, %v333
+	%v336 = load i32, ptr @__GLOBAL_VAR_d
+	%v337 = add i32 %v334, %v336
+	store i32 %v337, ptr %v186
+	%v338 = load i32, ptr %v186
+	call void @putint(i32 %v338)
+	call void @putch(i32 10)
+	call void @putarray(i32 3, ptr @__GLOBAL_VAR_x)
+	call void @putarray(i32 3, ptr @__GLOBAL_VAR_y)
+	%v345 = load i32, ptr @__GLOBAL_VAR_d
+	call void @putint(i32 %v345)
+	call void @putch(i32 10)
+	store i32 0, ptr %v185
+	br label %bb_13
+bb_13:
+	%v348 = load i32, ptr %v185
+	ret i32 %v348
 }

@@ -507,11 +507,10 @@ impl IrGenContext {
             ExpKind::LVal(LVal { ident, indices }) => {
                 // TODO✔: Add support for array indexing
                 // 查找符号表
-                let (ir_value, _base_ty) = {
+                let (ir_value, base_ty) = {
                     let entry = self.symtable.lookup(ident).unwrap();
                     (entry.ir_value.unwrap(), entry.ty.clone())
                 };
-                let base_ty = _base_ty;
 
                 // 获取基础类型的 IR 表示
                 let ir_base_ty = self.gen_type(&base_ty);
@@ -524,9 +523,9 @@ impl IrGenContext {
                         Value::global_ref(&mut self.ctx, name, value_ty)
                     }
                     IrGenResult::Value(slot) => slot,
-                    _ => unreachable!(),
                 };
 
+                // 如果左值是数组（有索引）
                 if !indices.is_empty() {
                     // 如果有索引操作，逐步生成 GEP 指令
                     let current_slot = slot;
@@ -575,6 +574,7 @@ impl IrGenContext {
                     Some(load_inst.result(&self.ctx).unwrap())
                 } else {
                     let current_base_ty = base_ty.clone();
+                    // 如果左值是数组（无索引）
                     if current_base_ty.is_array() {
                         Some(slot)
                     } else {
@@ -586,7 +586,7 @@ impl IrGenContext {
             }
             ExpKind::InitList(elements) => {
                 // TODO✔: Implement init list
-                // XXX: Not sure when InitList is invoked
+                // XXX: Not sure if we need InitList
                 let mut element_values = Vec::new();
                 let mut element_ty = None;
                 for element_exp in elements {
@@ -866,7 +866,6 @@ impl IrGen for FuncDef {
                 }
                 Some(_) => {}
             }
-            // param_tys.push(ty.clone());
         }
 
         let func_ty = Type::func(param_tys.clone(), self.ret_ty.clone());
@@ -1077,14 +1076,11 @@ impl IrGen for Stmt {
                 lval: LVal { ident, indices },
                 exp,
             }) => {
-                // XXX: Add support for array indexing, Not sure if we need to implement it
+                // TODO✔: Add support for array indexing, Not sure if we need to implement it
                 // 查找符号表，获取符号对应的 IR 值和类型
                 let entry = irgen.symtable.lookup(ident).unwrap();
                 let ir_value = entry.ir_value.unwrap();
                 let base_ty = entry.ty.clone();
-
-                // 获取基础类型的 IR 表示
-                let ir_base_ty = irgen.gen_type(&base_ty);
 
                 // 确定起始 slot
                 let slot = match ir_value {
@@ -1094,7 +1090,6 @@ impl IrGen for Stmt {
                         Value::global_ref(&mut irgen.ctx, name, value_ty)
                     }
                     IrGenResult::Value(slot) => slot,
-                    _ => unreachable!(),
                 };
 
                 let store_dst = if !indices.is_empty() {
@@ -1226,8 +1221,6 @@ impl IrGen for Stmt {
                             }
                         }
                     }
-                } else {
-                    // 如果没有else分支，条件跳转已经处理了跳转到merge块的情况
                 }
 
                 // 如果then和else块都有终结指令，merge 块添加一个无条件跳转

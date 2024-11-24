@@ -3,3 +3,13 @@
 /.idea
 
 /output
+
+*.s
+
+*.ll
+
+*.sh
+
+test
+
+.gitignore

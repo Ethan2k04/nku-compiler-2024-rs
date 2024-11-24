@@ -1115,89 +1115,49 @@ impl fmt::Display for DisplayInst<'_> {
                 )?;
             }
             InstKind::GetElementPtr { bound_ty } => {
-                // 打印指令名和约束类型
-                // write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
+                write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
 
-                // // 迭代所有操作数
-                // let mut operands = self.inst.operand_iter(self.ctx);
+                // 迭代所有操作数
+                let mut operands = self.inst.operand_iter(self.ctx);
 
-                // // 第一个操作数：基指针
-                // if let Some(base_ptr) = operands.next() {
-                //     write!(
-                //         f,
-                //         "{}",
-                //         base_ptr.display(self.ctx, true) // 基指针值
-                //     )?;
-                // } else {
-                //     return Err(fmt::Error); // 基指针缺失
-                // }
-
-                // // 后续操作数：索引
-                // for index in operands {
-                //     write!(
-                //         f,
-                //         ", {} {}",
-                //         index.ty(self.ctx).display(self.ctx), // 索引类型
-                //         index.display(self.ctx, false)        // 索引值
-                //     )?;
-                // }
-                if !bound_ty.is_array(self.ctx) {
-                    write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
-
-                    // 迭代所有操作数
-                    let mut operands = self.inst.operand_iter(self.ctx);
-
-                    // 第一个操作数：基指针
-                    write!(f, "{}* ", bound_ty.display(self.ctx))?;
-                    if let Some(base_ptr) = operands.next() {
+                // 第一个操作数：基指针
+                if let Some(base_ptr) = operands.next() {
+                    if bound_ty.is_array(self.ctx) {
+                        // 数组情况下，直接打印约束类型的基指针
+                        write!(f, "{}", base_ptr.display(self.ctx, true))?;
+                    } else {
+                        // 非数组情况下，打印指针类型和基指针
                         write!(
                             f,
-                            "{}",
-                            base_ptr.display(self.ctx, false) // 基指针值
+                            "{}* {}",
+                            bound_ty.display(self.ctx),
+                            base_ptr.display(self.ctx, false)
+                        )?;
+                    }
+                } else {
+                    return Err(fmt::Error); // 基指针缺失
+                }
+
+                // 后续操作数：索引
+                for (i, index) in operands.enumerate() {
+                    if bound_ty.is_array(self.ctx) {
+                        // 数组情况下，两个操作数
+                        write!(
+                            f,
+                            ", {} {}",
+                            index.ty(self.ctx).display(self.ctx),
+                            index.display(self.ctx, false)
                         )?;
                     } else {
-                        return Err(fmt::Error); // 基指针缺失
-                    }
-
-                    // 后续操作数：索引
-                    let mut i = 0;
-                    for index in operands {
+                        // 非数组情况下，一个操作数
                         if i == 1 {
                             write!(
                                 f,
                                 ", {} {}",
-                                index.ty(self.ctx).display(self.ctx), // 索引类型
-                                index.display(self.ctx, false)        // 索引值
+                                index.ty(self.ctx).display(self.ctx),
+                                index.display(self.ctx, false)
                             )?;
                         }
-                        i = i + 1;
-                    }
-                } else {
-                    // 打印指令名和约束类型
-                    write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
-
-                    // 迭代所有操作数
-                    let mut operands = self.inst.operand_iter(self.ctx);
-
-                    // 第一个操作数：基指针
-                    if let Some(base_ptr) = operands.next() {
-                        write!(
-                            f,
-                            "{}",
-                            base_ptr.display(self.ctx, true) // 基指针值
-                        )?;
-                    } else {
-                        return Err(fmt::Error); // 基指针缺失
-                    }
-
-                    // 后续操作数：索引
-                    for index in operands {
-                        write!(
-                            f,
-                            ", {} {}",
-                            index.ty(self.ctx).display(self.ctx), // 索引类型
-                            index.display(self.ctx, false)        // 索引值
-                        )?;
                     }
                 }
             }

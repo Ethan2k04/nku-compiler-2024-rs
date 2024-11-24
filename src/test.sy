@@ -18,15 +18,36 @@ float DFS(int now,float ans1,float ans2,float ans3,float g[]){
     return DFS(now+1,g[now],a[now]*(ans1+2*ans2+1),ff[now],f);
 }
 
-int main(){
-	getfarray(a);
-    float g[maxn]={};
-    g[0]=a[0];
-    ff[0]=a[0];
-    float ans;
-    ans=DFS(1,a[0],a[0],a[0],g);
-    putfloat(ans);
-    putch(32);
-    putfarray(n,ff);
-    return 0;
+int main()
+{
+  int t = x[2];
+  y[2] = 3;
+  t = t + x[2];
+  x[2] = 3;
+  t = t + x[2] + d;
+  d = 5;
+  t = t + x[2] + d + d;
+  refx();
+  t = t + x[2] + d;
+  modx();
+  t = t + x[2] + d;
+  mody();
+  t = t + x[2] + d;
+  modyrefx();
+  t = t + x[2] + y[2] + d;
+  modxrefy();
+  t = t + x[2] + d;
+  t = t + y[1] + y[2] + d;
+  modyrefx();
+  t = t + y[1] + y[2] + d;
+  refy();
+  t = t + y[1] + y[2] + d;
+  putint(t);
+  putch(10);
+  putarray(3,x);
+  putarray(3,y);
+  putint(d);
+  putch(10);
+
+  return 0;
 }
