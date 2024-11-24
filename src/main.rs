@@ -57,11 +57,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut ast = SysYParser::new().parse(&src).unwrap();
 
-    println!("{:#?}", ast);
+    // println!("{:#?}", ast);
 
     ast.type_check();
 
-    println!("{:#?}", ast);
+    // println!("{:#?}", ast);
 
     let ir = irgen(&ast, 8);
 

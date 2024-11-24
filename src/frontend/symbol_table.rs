@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use std::vec;
 
 use super::ast::*;
-use super::types::{Type, TypeKind as Tk};
 use super::irgen::IrGenResult;
-
+use super::types::{Type, TypeKind as Tk};
 
 /// Symbol table entry.
 /// This is used to store information about a symbol in the symbol table.
@@ -45,10 +44,14 @@ pub struct SymbolTable {
 
 impl SymbolTable {
     /// Enter a new scope.
-    pub fn enter_scope(&mut self) { self.stack.push(HashMap::default()); }
+    pub fn enter_scope(&mut self) {
+        self.stack.push(HashMap::default());
+    }
 
     /// Leave the current scope.
-    pub fn leave_scope(&mut self) { self.stack.pop(); } 
+    pub fn leave_scope(&mut self) {
+        self.stack.pop();
+    }
 
     /// Insert a symbol into the current scope.
     pub fn insert(&mut self, name: impl Into<String>, entry: SymbolEntry) {
@@ -90,18 +93,63 @@ impl SymbolTable {
         // TODO✔: Register SysY library functions to the symbol table
         assert_eq!(self.stack.len(), 1);
 
-        self.insert("getint", SymbolEntry::from_ty(Type::func(vec![], Type::int())));
-        self.insert("getch", SymbolEntry::from_ty(Type::func(vec![], Type::int())));
-        self.insert("getfloat", SymbolEntry::from_ty(Type::func(vec![], Type::float())));
-        self.insert("getarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::int())], Type::int())));
-        self.insert("getfarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::float())], Type::float())));
-        self.insert("putint", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
-        self.insert("putch", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
-        self.insert("putfloat", SymbolEntry::from_ty(Type::func(vec![Type::float()], Type::void())));
-        self.insert("putarray", SymbolEntry::from_ty(Type::func(vec![Type::int(), Type::pointer(Type::int())], Type::void())));
-        self.insert("putfarray", SymbolEntry::from_ty(Type::func(vec![Type::float(), Type::pointer(Type::float())], Type::void())));
+        self.insert(
+            "getint",
+            SymbolEntry::from_ty(Type::func(vec![], Type::int())),
+        );
+        self.insert(
+            "getch",
+            SymbolEntry::from_ty(Type::func(vec![], Type::int())),
+        );
+        self.insert(
+            "getfloat",
+            SymbolEntry::from_ty(Type::func(vec![], Type::float())),
+        );
+        self.insert(
+            "getarray",
+            SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::int())], Type::int())),
+        );
+        self.insert(
+            "getfarray",
+            SymbolEntry::from_ty(Type::func(
+                vec![Type::pointer(Type::float())],
+                Type::float(),
+            )),
+        );
+        self.insert(
+            "putint",
+            SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())),
+        );
+        self.insert(
+            "putch",
+            SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())),
+        );
+        self.insert(
+            "putfloat",
+            SymbolEntry::from_ty(Type::func(vec![Type::float()], Type::void())),
+        );
+        self.insert(
+            "putarray",
+            SymbolEntry::from_ty(Type::func(
+                vec![Type::int(), Type::pointer(Type::int())],
+                Type::void(),
+            )),
+        );
+        self.insert(
+            "putfarray",
+            SymbolEntry::from_ty(Type::func(
+                vec![Type::float(), Type::pointer(Type::float())],
+                Type::void(),
+            )),
+        );
 
-        self.insert("starttime", SymbolEntry::from_ty(Type::func(vec![], Type::void())));
-        self.insert("stoptime", SymbolEntry::from_ty(Type::func(vec![], Type::void())));
+        self.insert(
+            "starttime",
+            SymbolEntry::from_ty(Type::func(vec![], Type::void())),
+        );
+        self.insert(
+            "stoptime",
+            SymbolEntry::from_ty(Type::func(vec![], Type::void())),
+        );
     }
 }

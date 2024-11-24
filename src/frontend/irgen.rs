@@ -395,26 +395,34 @@ impl IrGenContext {
                     let rhs_block = ir::Block::new(&mut self.ctx);
                     let merge_block = ir::Block::new(&mut self.ctx);
 
-                    self.curr_func.unwrap().push_back(&mut self.ctx, rhs_block).unwrap();
-                    self.curr_func.unwrap().push_back(&mut self.ctx, merge_block).unwrap();
+                    self.curr_func
+                        .unwrap()
+                        .push_back(&mut self.ctx, rhs_block)
+                        .unwrap();
+                    self.curr_func
+                        .unwrap()
+                        .push_back(&mut self.ctx, merge_block)
+                        .unwrap();
 
                     let br = match op {
-                        Bo::And => {
-                            Inst::cond_br(&mut self.ctx, lhs, rhs_block, merge_block)
-                        },
-                        Bo::Or => {
-                            Inst::cond_br(&mut self.ctx, lhs, merge_block, rhs_block)
-                        },
-                        _ => unreachable!()
+                        Bo::And => Inst::cond_br(&mut self.ctx, lhs, rhs_block, merge_block),
+                        Bo::Or => Inst::cond_br(&mut self.ctx, lhs, merge_block, rhs_block),
+                        _ => unreachable!(),
                     };
 
-                    self.curr_block.unwrap().push_back(&mut self.ctx, br).unwrap();
+                    self.curr_block
+                        .unwrap()
+                        .push_back(&mut self.ctx, br)
+                        .unwrap();
 
                     self.curr_block = Some(rhs_block);
                     let rhs = self.gen_local_expr(rhs).unwrap();
 
                     let br = Inst::br(&mut self.ctx, merge_block);
-                    self.curr_block.unwrap().push_back(&mut self.ctx, br).unwrap();
+                    self.curr_block
+                        .unwrap()
+                        .push_back(&mut self.ctx, br)
+                        .unwrap();
 
                     let i1_ty = Ty::i1(&mut self.ctx);
                     let phi = Inst::phi(&mut self.ctx, i1_ty);
@@ -434,7 +442,7 @@ impl IrGenContext {
                                 phi.insert_incoming(&mut self.ctx, rhs_block, rhs);
                             }
                         }
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     }
 
                     merge_block.push_back(&mut self.ctx, phi).unwrap();
@@ -499,14 +507,13 @@ impl IrGenContext {
             ExpKind::LVal(LVal { ident, indices }) => {
                 // TODO✔: Add support for array indexing
                 // 查找符号表
-                let (ir_value, _base_ty) = {
+                let (ir_value, base_ty) = {
                     let entry = self.symtable.lookup(ident).unwrap();
                     (entry.ir_value.unwrap(), entry.ty.clone())
                 };
-                let base_ty = _base_ty;
 
                 // 获取基础类型的 IR 表示
-                let ir_base_ty = self.gen_type(&base_ty.clone());
+                let ir_base_ty = self.gen_type(&base_ty);
 
                 // 确定起始 slot
                 let slot = match ir_value {
@@ -516,9 +523,9 @@ impl IrGenContext {
                         Value::global_ref(&mut self.ctx, name, value_ty)
                     }
                     IrGenResult::Value(slot) => slot,
-                    _ => unreachable!(),
                 };
 
+                // 如果左值是数组（有索引）
                 if !indices.is_empty() {
                     // 如果有索引操作，逐步生成 GEP 指令
                     let current_slot = slot;
@@ -548,10 +555,14 @@ impl IrGenContext {
                         gep_indices.push(index_value);
                     }
 
-                    // 生成 GEP 指令时需要可变借用
-                    let bond_ty = self.gen_type(&base_ty);
+                    // 生成 GEP 指令
+                    let bond_ty = if base_ty.is_pointer() {
+                        self.gen_type(&base_ty.unwrap_pointer())
+                    } else {
+                        self.gen_type(&base_ty)
+                    };
                     let gep_inst =
-                        Inst::getelementptr(&mut self.ctx, bond_ty, current_slot, gep_indices);
+                        Inst::get_element_ptr(&mut self.ctx, bond_ty, current_slot, gep_indices);
                     curr_block.push_back(&mut self.ctx, gep_inst).unwrap();
 
                     // 加载最终元素值（需要获取结果后再生成 Load 指令）
@@ -562,15 +573,20 @@ impl IrGenContext {
 
                     Some(load_inst.result(&self.ctx).unwrap())
                 } else {
-                    // 如果没有索引操作，直接生成 Load 指令
-                    let load = Inst::load(&mut self.ctx, slot, ir_base_ty);
-                    curr_block.push_back(&mut self.ctx, load).unwrap();
-                    Some(load.result(&self.ctx).unwrap())
+                    let current_base_ty = base_ty.clone();
+                    // 如果左值是数组（无索引）
+                    if current_base_ty.is_array() {
+                        Some(slot)
+                    } else {
+                        let load = Inst::load(&mut self.ctx, slot, ir_base_ty);
+                        curr_block.push_back(&mut self.ctx, load).unwrap();
+                        Some(load.result(&self.ctx).unwrap())
+                    }
                 }
             }
             ExpKind::InitList(elements) => {
                 // TODO✔: Implement init list
-                // XXX: Not sure when InitList is invoked
+                // XXX: Not sure if we need InitList
                 let mut element_values = Vec::new();
                 let mut element_ty = None;
                 for element_exp in elements {
@@ -591,36 +607,41 @@ impl IrGenContext {
             }
             ExpKind::Coercion(expr) => {
                 // TODO✔: Implement coercion generation
-                let val = self.gen_local_expr(expr).unwrap();
                 let from_ty = expr.ty().kind();
                 let to_ty = exp.ty().kind();
                 match (from_ty, to_ty) {
                     (Tk::Bool, Tk::Int) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i32_ty = Ty::i32(&mut self.ctx);
                         let cast = Inst::cast(&mut self.ctx, CastOp::Zext, val, i32_ty);
                         curr_block.push_back(&mut self.ctx, cast).unwrap();
                         Some(cast.result(&self.ctx).unwrap())
                     }
                     (Tk::Int, Tk::Bool) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let zero = Value::i32(&mut self.ctx, 0);
                         let i1_ty = Ty::i1(&mut self.ctx);
                         let icmp = Inst::int_binary(
                             &mut self.ctx,
                             val,
                             zero,
-                            IntBinaryOp::ICmp { cond: IntCmpCond::Ne },
+                            IntBinaryOp::ICmp {
+                                cond: IntCmpCond::Ne,
+                            },
                             i1_ty,
                         );
                         curr_block.push_back(&mut self.ctx, icmp).unwrap();
                         Some(icmp.result(&self.ctx).unwrap())
                     }
                     (Tk::Int, Tk::Float) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let f32_ty = Ty::f32(&mut self.ctx);
                         let cast = Inst::cast(&mut self.ctx, CastOp::SiToFp, val, f32_ty);
                         curr_block.push_back(&mut self.ctx, cast).unwrap();
                         Some(cast.result(&self.ctx).unwrap())
                     }
                     (Tk::Float, Tk::Int) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i32_ty = Ty::i32(&mut self.ctx);
                         let cast = Inst::cast(&mut self.ctx, CastOp::FpToSi, val, i32_ty);
                         curr_block.push_back(&mut self.ctx, cast).unwrap();
@@ -628,6 +649,7 @@ impl IrGenContext {
                     }
                     (Tk::Bool, Tk::Float) => {
                         // bool -> int -> float
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i32_ty = Ty::i32(&mut self.ctx);
                         let f32_ty = Ty::f32(&mut self.ctx);
 
@@ -638,13 +660,15 @@ impl IrGenContext {
                         // 先获取 zext 的结果
                         let zext_result = zext.result(&self.ctx).unwrap();
                         // 再创建 sitofp 指令
-                        let to_float = Inst::cast(&mut self.ctx, CastOp::SiToFp, zext_result, f32_ty);
+                        let to_float =
+                            Inst::cast(&mut self.ctx, CastOp::SiToFp, zext_result, f32_ty);
                         curr_block.push_back(&mut self.ctx, to_float).unwrap();
 
                         Some(to_float.result(&self.ctx).unwrap())
                     }
                     (Tk::Float, Tk::Bool) => {
                         // float -> bool
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i1_ty = Ty::i1(&mut self.ctx);
                         let fzero = Value::f32(&mut self.ctx, 0.0);
 
@@ -653,7 +677,9 @@ impl IrGenContext {
                             &mut self.ctx,
                             val,
                             fzero,
-                            FloatBinaryOp::FCmp { cond: FloatCmpCond::UNe },
+                            FloatBinaryOp::FCmp {
+                                cond: FloatCmpCond::UNe,
+                            },
                             i1_ty,
                         );
                         curr_block.push_back(&mut self.ctx, fcmp).unwrap();
@@ -830,8 +856,16 @@ impl IrGen for FuncDef {
         irgen.symtable.enter_scope();
 
         let mut param_tys = Vec::new();
-        for FuncFParam { ty, .. } in self.params.iter() {
-            param_tys.push(ty.clone());
+        for FuncFParam { ty, ident, dims } in self.params.iter() {
+            match dims {
+                None => {
+                    param_tys.push(ty.clone());
+                }
+                Some(vec) if vec.is_empty() => {
+                    param_tys.push(Type::pointer(ty.clone()));
+                }
+                Some(_) => {}
+            }
         }
 
         let func_ty = Type::func(param_tys.clone(), self.ret_ty.clone());
@@ -1039,26 +1073,75 @@ impl IrGen for Stmt {
 
         match self {
             Stmt::Assign(AssignStmt {
-                lval: LVal { ident, .. },
+                lval: LVal { ident, indices },
                 exp,
             }) => {
-                // XXX: Add support for array indexing, Not sure if we need to implement it
+                // TODO✔: Add support for array indexing, Not sure if we need to implement it
+                // 查找符号表，获取符号对应的 IR 值和类型
                 let entry = irgen.symtable.lookup(ident).unwrap();
                 let ir_value = entry.ir_value.unwrap();
+                let base_ty = entry.ty.clone();
 
-                let slot = if let IrGenResult::Global(slot) = ir_value {
-                    let name = slot.name(&irgen.ctx).to_string();
-                    let value_ty = slot.ty(&irgen.ctx);
-                    Value::global_ref(&mut irgen.ctx, name, value_ty)
-                } else if let IrGenResult::Value(slot) = ir_value {
-                    slot
-                } else {
-                    unreachable!()
+                // 确定起始 slot
+                let slot = match ir_value {
+                    IrGenResult::Global(slot) => {
+                        let name = slot.name(&irgen.ctx).to_string();
+                        let value_ty = slot.ty(&irgen.ctx);
+                        Value::global_ref(&mut irgen.ctx, name, value_ty)
+                    }
+                    IrGenResult::Value(slot) => slot,
                 };
 
-                let store_dst = slot;
+                let store_dst = if !indices.is_empty() {
+                    // 如果有索引操作，逐步生成 GEP 指令
+                    let current_slot = slot;
+                    let mut current_base_ty = base_ty.clone();
 
+                    // 初始化索引操作数列表，第一项是数组的基地址
+                    let zero_value = Value::zero(&mut irgen.ctx);
+                    let mut gep_indices = vec![zero_value];
+
+                    // 遍历索引表达式，生成 GEP 索引
+                    for index_exp in indices {
+                        // 生成当前索引表达式的 IR 值
+                        let index_value = irgen.gen_local_expr(index_exp).unwrap();
+
+                        // 确保当前类型为数组或指针
+                        if !current_base_ty.is_array() && !current_base_ty.is_pointer() {
+                            panic!(
+                                "LVal indexing requires an array or pointer type, but got {}",
+                                current_base_ty
+                            );
+                        }
+
+                        // 获取数组或指针的元素类型
+                        current_base_ty = current_base_ty.element_type().clone();
+
+                        // 将当前索引值添加到索引列表
+                        gep_indices.push(index_value);
+                    }
+
+                    // 生成 GEP 指令
+                    let bond_ty = if base_ty.is_pointer() {
+                        irgen.gen_type(&base_ty.unwrap_pointer())
+                    } else {
+                        irgen.gen_type(&base_ty)
+                    };
+                    let gep_inst =
+                        Inst::get_element_ptr(&mut irgen.ctx, bond_ty, current_slot, gep_indices);
+                    curr_block.push_back(&mut irgen.ctx, gep_inst).unwrap();
+
+                    // GEP 指令的结果作为 Store 指令的目标
+                    gep_inst.result(&irgen.ctx).unwrap()
+                } else {
+                    // 如果没有索引操作，直接使用基础 slot
+                    slot
+                };
+
+                // 生成右值表达式的 IR
                 let val = irgen.gen_local_expr(exp).unwrap();
+
+                // 生成 Store 指令，将右值存储到目标位置
                 let store = Inst::store(&mut irgen.ctx, val, store_dst);
                 curr_block.push_back(&mut irgen.ctx, store).unwrap();
             }
@@ -1088,8 +1171,12 @@ impl IrGen for Stmt {
                 curr_func.push_back(&mut irgen.ctx, merge_block).unwrap();
 
                 // 生成条件跳转
-                let br = Inst::cond_br(&mut irgen.ctx, cond, then_block,
-                                       else_block.unwrap_or(merge_block));
+                let br = Inst::cond_br(
+                    &mut irgen.ctx,
+                    cond,
+                    then_block,
+                    else_block.unwrap_or(merge_block),
+                );
                 curr_block.push_back(&mut irgen.ctx, br).unwrap();
 
                 let mut is_terminator_then = false;
@@ -1109,7 +1196,11 @@ impl IrGen for Stmt {
                         }
                     } else {
                         let jump = Inst::br(&mut irgen.ctx, merge_block);
-                        irgen.curr_block.unwrap().push_back(&mut irgen.ctx, jump).unwrap();
+                        irgen
+                            .curr_block
+                            .unwrap()
+                            .push_back(&mut irgen.ctx, jump)
+                            .unwrap();
                     }
                 }
 
@@ -1130,8 +1221,6 @@ impl IrGen for Stmt {
                             }
                         }
                     }
-                } else {
-                    // 如果没有else分支，条件跳转已经处理了跳转到merge块的情况
                 }
 
                 // 如果then和else块都有终结指令，merge 块添加一个无条件跳转
@@ -1150,17 +1239,22 @@ impl IrGen for Stmt {
             Stmt::While(while_stmt) => {
                 // TODO✔: Implement while statement, maybe something wrong here
                 // 1. 创建所需的基本块
-                let loop_entry = Block::new(&mut irgen.ctx);  // 条件判断块
-                let loop_body = Block::new(&mut irgen.ctx);   // 循环体块
-                let loop_exit = Block::new(&mut irgen.ctx);   // 退出块
+                let loop_entry = Block::new(&mut irgen.ctx); // 条件判断块
+                let loop_body = Block::new(&mut irgen.ctx); // 循环体块
+                let loop_exit = Block::new(&mut irgen.ctx); // 退出块
 
                 // 2. 从当前块跳转到条件判断块
                 let br = Inst::br(&mut irgen.ctx, loop_entry);
-                irgen.curr_block.unwrap().push_back(&mut irgen.ctx, br)
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, br)
                     .expect("Failed to insert branch to loop entry block");
 
                 // 3. 将条件判断块加入函数
-                irgen.curr_func.unwrap()
+                irgen
+                    .curr_func
+                    .unwrap()
                     .push_back(&mut irgen.ctx, loop_entry)
                     .expect("Failed to append loop entry block");
 
@@ -1168,15 +1262,18 @@ impl IrGen for Stmt {
                 irgen.curr_block = Some(loop_entry);
                 let cond = irgen.gen_local_expr(&while_stmt.cond).unwrap();
 
-                
-
                 // 5. 根据条件跳转到循环体或退出块
                 let cond_br = Inst::cond_br(&mut irgen.ctx, cond, loop_body, loop_exit);
-                irgen.curr_block.unwrap().push_back(&mut irgen.ctx, cond_br)
+                irgen
+                    .curr_block
+                    .unwrap()
+                    .push_back(&mut irgen.ctx, cond_br)
                     .expect("Failed to insert conditional branch");
 
                 // 6. 生成循环体代码
-                irgen.curr_func.unwrap()
+                irgen
+                    .curr_func
+                    .unwrap()
                     .push_back(&mut irgen.ctx, loop_body)
                     .expect("Failed to append loop body block");
                 irgen.curr_block = Some(loop_body);
@@ -1185,11 +1282,13 @@ impl IrGen for Stmt {
                 irgen.loop_entry_stack.push(loop_entry);
                 irgen.loop_exit_stack.push(loop_exit);
 
-                &while_stmt.body.irgen(irgen);  // 生成循环体的IR
+                &while_stmt.body.irgen(irgen); // 生成循环体的IR
 
                 // 从循环体块跳回条件判断块
                 let br_back = Inst::br(&mut irgen.ctx, loop_entry);
-                irgen.curr_block.unwrap()
+                irgen
+                    .curr_block
+                    .unwrap()
                     .push_back(&mut irgen.ctx, br_back)
                     .expect("Failed to insert branch back to entry");
 
@@ -1198,7 +1297,9 @@ impl IrGen for Stmt {
                 irgen.loop_exit_stack.pop();
 
                 // 7. 最后设置当前块为退出块
-                irgen.curr_func.unwrap()
+                irgen
+                    .curr_func
+                    .unwrap()
                     .push_back(&mut irgen.ctx, loop_exit)
                     .expect("Failed to append loop exit block");
                 irgen.curr_block = Some(loop_exit);
@@ -1208,7 +1309,6 @@ impl IrGen for Stmt {
                 let i1_ty = Ty::i1(&mut irgen.ctx);
                 let nop = Inst::alloca(&mut irgen.ctx, i1_ty);
                 loop_exit.push_back(&mut irgen.ctx, nop).unwrap();
-
             }
             Stmt::Break => {
                 // TODO✔: Implement break statement

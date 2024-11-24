@@ -37,23 +37,37 @@ void modyrefx()
   y[1] = x[1] + 6;
   y[2] = x[2] + 7;
 }
-int main(){
-    int t = x[2];
-    putint(t);
-    putch(10);
-    y[2] = 3;
-    t = t + x[2];
-    putint(t);
-    putch(10);
-    x[2] = 3;
-    t = t + x[2] + d;
-    putint(t);
-    putch(10);
-    d = 5;
-    t = t + x[2] + d + d;
-    putint(t);
-    putch(10);
-    refx();
-    putint(d);
-    putch(10);
+
+int main()
+{
+  int t = x[2];
+  y[2] = 3;
+  t = t + x[2];
+  x[2] = 3;
+  t = t + x[2] + d;
+  d = 5;
+  t = t + x[2] + d + d;
+  refx();
+  t = t + x[2] + d;
+  modx();
+  t = t + x[2] + d;
+  mody();
+  t = t + x[2] + d;
+  modyrefx();
+  t = t + x[2] + y[2] + d;
+  modxrefy();
+  t = t + x[2] + d;
+  t = t + y[1] + y[2] + d;
+  modyrefx();
+  t = t + y[1] + y[2] + d;
+  refy();
+  t = t + y[1] + y[2] + d;
+  putint(t);
+  putch(10);
+  putarray(3,x);
+  putarray(3,y);
+  putint(d);
+  putch(10);
+
+  return 0;
 }
