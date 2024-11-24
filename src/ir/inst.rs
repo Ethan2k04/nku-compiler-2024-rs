@@ -1141,7 +1141,6 @@ impl fmt::Display for DisplayInst<'_> {
                 //         index.display(self.ctx, false)        // 索引值
                 //     )?;
                 // }
-                print!(" {} ", bound_ty.display(self.ctx));
                 if !bound_ty.is_array(self.ctx) {
                     write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
 
