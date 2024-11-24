@@ -240,7 +240,7 @@ impl ComptimeVal {
             Self::Zero(ty) => ty.clone(),
             Self::List(vals) => {
                 let elem_ty = vals.first().unwrap().get_type();
-                Type::array(elem_ty, vals.len()) 
+                Type::array(elem_ty, vals.len())
             }
         }
     }
@@ -480,7 +480,7 @@ impl std::ops::Div for ComptimeVal {
             // coercion situations, int -> float
             (Cv::Int(a), Cv::Float(b)) => Cv::Float(a as f32 / b),
             (Cv::Float(a), Cv::Int(b)) => Cv::Float(a / b as f32),
-            
+
             // coercion situations, bool -> float
             (Cv::Bool(a), Cv::Float(b)) => Cv::Float(a as i32 as f32 / b),
             (Cv::Float(a), Cv::Bool(b)) => Cv::Float(a / b as i32 as f32),
@@ -790,7 +790,8 @@ impl Stmt {
             Stmt::Assign(AssignStmt { lval, exp }) => {
                 let entry = symtable.lookup(&lval.ident).expect("variable not found");
 
-                let indices = lval.indices
+                let indices = lval
+                    .indices
                     .clone()
                     .into_iter()
                     .map(|idx_exp| idx_exp.type_check(Some(&Type::int()), symtable))
@@ -804,11 +805,11 @@ impl Stmt {
                         Tk::Array(inner_ty, _) => {
                             // 更新 ty 为数组的元素类型
                             ty = inner_ty;
-                        },
+                        }
                         Tk::Pointer(inner_ty) => {
                             // 更新 ty 为指针的元素类型
                             ty = inner_ty;
-                        },
+                        }
                         _ => {
                             panic!("indexing a non-array type");
                         }
@@ -818,17 +819,17 @@ impl Stmt {
                 // Type check the expression
                 let exp = exp.type_check(Some(ty), symtable);
                 Stmt::Assign(AssignStmt { lval, exp })
-            },
+            }
             Stmt::Exp(ExpStmt { exp }) => {
                 // Type check the expression
                 let exp = exp.map(|exp| exp.type_check(None, symtable));
                 Stmt::Exp(ExpStmt { exp })
-            },
+            }
             Stmt::Block(mut block) => {
                 // Type check the block
                 block.type_check(symtable);
                 Stmt::Block(block)
-            },
+            }
             Stmt::Break => Stmt::Break,
             Stmt::Continue => Stmt::Continue,
             Stmt::Return(ReturnStmt { exp }) => {
@@ -851,14 +852,14 @@ impl Stmt {
                 }
 
                 Stmt::Return(ReturnStmt { exp: Some(exp) })
-            },
+            }
             Stmt::If(if_stmt) => {
                 let IfStmt { cond, then, else_ } = *if_stmt;
                 let cond = cond.type_check(Some(&Type::bool()), symtable);
                 let then = Box::new(then.type_check(symtable));
                 let else_ = else_.map(|block| Box::new(block.type_check(symtable)));
                 Stmt::If(Box::new(IfStmt { cond, then, else_ }))
-            },
+            }
             Stmt::While(while_stmt) => {
                 let WhileStmt { cond, body } = *while_stmt;
                 let cond = cond.type_check(Some(&Type::bool()), symtable);
@@ -872,7 +873,9 @@ impl Stmt {
 // TODO: Add judegment for if a value is out of i32 range
 impl Exp {
     /// Get the type of the expression.
-    pub fn ty(&self) -> &Type { self.ty.as_ref().unwrap() }
+    pub fn ty(&self) -> &Type {
+        self.ty.as_ref().unwrap()
+    }
 
     /// Type check the expression.
     pub fn type_check(self, expect: Option<&Type>, symtable: &SymbolTable) -> Self {
@@ -902,22 +905,22 @@ impl Exp {
                 match (lhs_ty.kind(), rhs_ty.kind()) {
                     (Tk::Bool, Tk::Int) => {
                         lhs = Exp::coercion(lhs, Type::int());
-                    },
+                    }
                     (Tk::Int, Tk::Bool) => {
                         rhs = Exp::coercion(rhs, Type::int());
-                    },
+                    }
                     (Tk::Int, Tk::Float) => {
                         lhs = Exp::coercion(lhs, Type::float());
-                    },
+                    }
                     (Tk::Float, Tk::Int) => {
                         rhs = Exp::coercion(rhs, Type::float());
-                    },
+                    }
                     (Tk::Bool, Tk::Float) => {
                         lhs = Exp::coercion(lhs, Type::float());
-                    },
+                    }
                     (Tk::Float, Tk::Bool) => {
                         rhs = Exp::coercion(rhs, Type::float());
-                    },
+                    }
                     _ => {
                         if lhs_ty != rhs_ty {
                             panic!("unsupported type coercion: {:?} -> {:?}", lhs_ty, rhs_ty);
@@ -933,15 +936,26 @@ impl Exp {
                     ty: None,
                 };
                 match op {
-                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+                    BinaryOp::Add
+                    | BinaryOp::Sub
+                    | BinaryOp::Mul
+                    | BinaryOp::Div
+                    | BinaryOp::Mod => {
                         expr.ty = Some(lhs_ty.clone());
-                    },
-                    BinaryOp::And | BinaryOp::Or | BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Gt | BinaryOp::Le | BinaryOp::Ge => {
+                    }
+                    BinaryOp::And
+                    | BinaryOp::Or
+                    | BinaryOp::Eq
+                    | BinaryOp::Ne
+                    | BinaryOp::Lt
+                    | BinaryOp::Gt
+                    | BinaryOp::Le
+                    | BinaryOp::Ge => {
                         expr.ty = Some(Type::bool());
-                    },
+                    }
                 }
                 expr
-            },
+            }
             ExpKind::Unary(op, exp) => {
                 // Type check the expression
                 let mut exp = exp.type_check(None, symtable);
@@ -958,26 +972,34 @@ impl Exp {
                         } else {
                             panic!("unsupported type for unary negation: {:?}", ty);
                         }
-                    },
+                    }
                     UnaryOp::Not => {
                         let ty = exp.ty();
                         if ty.is_bool() {
                             // do nothing
                         } else if ty.is_int() {
                             exp = Exp {
-                                kind: ExpKind::Binary(BinaryOp::Ne, Box::new(exp), Box::new(Exp::const_(ComptimeVal::int(0)))),
+                                kind: ExpKind::Binary(
+                                    BinaryOp::Ne,
+                                    Box::new(exp),
+                                    Box::new(Exp::const_(ComptimeVal::int(0))),
+                                ),
                                 ty: Some(Type::bool()),
                             }
                         } else if ty.is_float() {
                             exp = Exp {
-                                kind: ExpKind::Binary(BinaryOp::Ne, Box::new(exp), Box::new(Exp::const_(ComptimeVal::float(0.0)))),
+                                kind: ExpKind::Binary(
+                                    BinaryOp::Ne,
+                                    Box::new(exp),
+                                    Box::new(Exp::const_(ComptimeVal::float(0.0))),
+                                ),
                                 ty: Some(Type::bool()),
                             }
                         } else {
                             panic!("unsupported type for unary not: {:?}", ty);
                         }
                         Type::bool()
-                    },
+                    }
                     UnaryOp::Pos => {
                         let ty = exp.ty();
                         if ty.is_int() || ty.is_float() {
@@ -985,14 +1007,14 @@ impl Exp {
                         } else {
                             panic!("unsupported type for unary pos: {:?}", ty);
                         }
-                    },
+                    }
                 };
 
                 Exp {
                     kind: ExpKind::Unary(op, Box::new(exp)),
                     ty: Some(ty),
                 }
-            },
+            }
             ExpKind::Coercion(_) => unreachable!(),
             ExpKind::FuncCall(FuncCall { ident, args }) => {
                 // Lookup the function in the symbol table
@@ -1002,10 +1024,10 @@ impl Exp {
 
                 // Type check the arguments
                 let args = args
-                .into_iter()
-                .zip(param_tys)
-                .map(|(arg, ty)| arg.type_check(Some(ty), symtable))
-                .collect();
+                    .into_iter()
+                    .zip(param_tys)
+                    .map(|(arg, ty)| arg.type_check(Some(ty), symtable))
+                    .collect();
 
                 // // Type check the arguments
                 // let args = args
@@ -1013,16 +1035,16 @@ impl Exp {
                 //     .zip(param_tys)
                 //     .map(|(arg, expected_ty)| {
                 //         let mut arg = arg.type_check(None, symtable);
-                        
+
                 //         // 特殊处理数组类型
-                //         if let (Tk::Array(exp_elem_ty, exp_len), Tk::Array(arg_elem_ty, _)) = 
+                //         if let (Tk::Array(exp_elem_ty, exp_len), Tk::Array(arg_elem_ty, _)) =
                 //             (expected_ty.kind(), arg.ty().kind()) {
                 //             if exp_elem_ty == arg_elem_ty && exp_len == &0 {
                 //                 // 允许任意长度的数组转换为长度为0的数组（可变长度）
                 //                 return arg;
                 //             }
                 //         }
-                        
+
                 //         // 其他情况进行普通类型检查
                 //         arg.type_check(Some(expected_ty), symtable)
                 //     })
@@ -1033,7 +1055,7 @@ impl Exp {
                     kind: ExpKind::FuncCall(FuncCall { ident, args }),
                     ty: Some(ret_ty.clone()),
                 }
-            },
+            }
             ExpKind::LVal(LVal { ident, indices }) => {
                 // Lookup the variable in the symbol table
                 let entry = symtable.lookup(&ident).unwrap();
@@ -1049,10 +1071,10 @@ impl Exp {
                     match ty.kind() {
                         Tk::Array(inner_ty, _) => {
                             ty = inner_ty;
-                        },
+                        }
                         Tk::Pointer(inner_ty) => {
                             ty = inner_ty;
-                        },
+                        }
                         _ => {
                             panic!("indexing a non-array type");
                         }
@@ -1064,7 +1086,7 @@ impl Exp {
                     ty: Some(ty.clone()),
                 };
                 exp
-            },
+            }
             ExpKind::InitList(ref list) => {
                 let ty = expect.expect("InitList expects a type");
 
@@ -1090,13 +1112,14 @@ impl Exp {
 
                             match &elem.kind {
                                 ExpKind::InitList(sub_list) => {
-                                    let (sub_vals, _) = handle_init_list(sub_list, elem_ty, symtable);
+                                    let (sub_vals, _) =
+                                        handle_init_list(sub_list, elem_ty, symtable);
                                     new_vals.push(Exp {
                                         kind: ExpKind::InitList(sub_vals),
                                         ty: Some(elem_ty.clone()),
                                     });
                                     consumed += 1;
-                                },
+                                }
                                 _ => {
                                     if let Tk::Array(_, _) = elem_ty.kind() {
                                         // 如果需要数组类型，创建一个新的初始化列表
@@ -1109,7 +1132,8 @@ impl Exp {
                                             j += 1;
                                         }
                                         // 递归处理这些元素
-                                        let (sub_vals, sub_consumed) = handle_init_list(&remaining_elems, elem_ty, symtable);
+                                        let (sub_vals, sub_consumed) =
+                                            handle_init_list(&remaining_elems, elem_ty, symtable);
                                         new_vals.push(Exp {
                                             kind: ExpKind::InitList(sub_vals),
                                             ty: Some(elem_ty.clone()),
@@ -1117,7 +1141,8 @@ impl Exp {
                                         consumed += sub_consumed;
                                     } else {
                                         // 基本类型直接进行类型检查
-                                        let checked_elem = elem.clone().type_check(Some(elem_ty), symtable);
+                                        let checked_elem =
+                                            elem.clone().type_check(Some(elem_ty), symtable);
                                         new_vals.push(checked_elem);
                                         consumed += 1;
                                     }
@@ -1220,7 +1245,7 @@ impl Exp {
                     BinaryOp::And => Some(lhs.logical_and(&rhs)),
                     BinaryOp::Or => Some(lhs.logical_or(&rhs)),
                 }
-            },
+            }
             ExpKind::Unary(op, exp) => {
                 let exp = exp.try_fold(symtable)?;
 
@@ -1229,38 +1254,36 @@ impl Exp {
                     UnaryOp::Not => Some(!exp),
                     UnaryOp::Pos => Some(exp),
                 }
-            },
+            }
             ExpKind::FuncCall(_) => None,
             ExpKind::LVal(LVal { ident, indices }) => {
-                // TODO✔: what if there are indices? 
+                // TODO✔: what if there are indices?
                 let entry = symtable.lookup(ident).unwrap();
                 let val = entry.comptime.as_ref()?.clone();
 
                 // fold indices e.g `arr[2 + 5]` -> `arr[7]`
                 let folded_indices: Vec<i64> = indices
                     .iter()
-                    .map(|index| {
-                        match index.try_fold(symtable)? {
-                            ComptimeVal::Int(i) => Some(i),
-                            ComptimeVal::Float(f) => Some(f as i64),
-                            ComptimeVal::Bool(b) => Some(b as i64),
-                            _ => None,
-                        }
+                    .map(|index| match index.try_fold(symtable)? {
+                        ComptimeVal::Int(i) => Some(i),
+                        ComptimeVal::Float(f) => Some(f as i64),
+                        ComptimeVal::Bool(b) => Some(b as i64),
+                        _ => None,
                     })
                     .collect::<Option<Vec<i64>>>()?;
 
                 // get the value at the folded indices
-                // e.g `int a[3] = {1, 2, 3}` 
+                // e.g `int a[3] = {1, 2, 3}`
                 // `int b = arr[1]` -> `int b = 3`
-                let val = folded_indices.into_iter().try_fold(val, |val, index| {
-                    match val {
+                let val = folded_indices
+                    .into_iter()
+                    .try_fold(val, |val, index| match val {
                         ComptimeVal::List(list) => list.get(index as usize).cloned(),
                         _ => None,
-                    }
-                })?;
+                    })?;
 
                 Some(val)
-            },
+            }
             ExpKind::InitList(vals) => {
                 let vals = vals
                     .iter()
@@ -1278,8 +1301,9 @@ impl Exp {
                             ComptimeVal::Bool(val) => val,
                             ComptimeVal::Int(val) => val != 0,
                             ComptimeVal::Float(val) => val != 0.0,
-                            ComptimeVal::Undef(_) | ComptimeVal::List(_) | ComptimeVal::Zero(_) => unreachable!(),
-
+                            ComptimeVal::Undef(_) | ComptimeVal::List(_) | ComptimeVal::Zero(_) => {
+                                unreachable!()
+                            }
                         };
                         Some(ComptimeVal::bool(exp))
                     }
@@ -1288,7 +1312,9 @@ impl Exp {
                             ComptimeVal::Bool(val) => val as i64,
                             ComptimeVal::Int(val) => val,
                             ComptimeVal::Float(val) => val as i64,
-                            ComptimeVal::Undef(_) | ComptimeVal::List(_) | ComptimeVal::Zero(_) => unreachable!(),
+                            ComptimeVal::Undef(_) | ComptimeVal::List(_) | ComptimeVal::Zero(_) => {
+                                unreachable!()
+                            }
                         };
                         Some(ComptimeVal::int(exp))
                     }
@@ -1297,7 +1323,9 @@ impl Exp {
                             ComptimeVal::Bool(val) => val as i32 as f32,
                             ComptimeVal::Int(val) => val as f32,
                             ComptimeVal::Float(val) => val,
-                            ComptimeVal::Undef(_) | ComptimeVal::List(_) | ComptimeVal::Zero(_) => unreachable!(),
+                            ComptimeVal::Undef(_) | ComptimeVal::List(_) | ComptimeVal::Zero(_) => {
+                                unreachable!()
+                            }
                         };
                         Some(ComptimeVal::float(exp))
                     }
@@ -1309,8 +1337,6 @@ impl Exp {
         }
     }
 }
-
-
 
 // Implement the `Display` trait for the AST structs.
 use std::fmt::{self, Display, Formatter};
@@ -1446,7 +1472,7 @@ impl Display for ComptimeVal {
                     write!(f, "{}", val)?;
                 }
                 write!(f, "]")
-            },
+            }
             ComptimeVal::Undef(ty) => write!(f, "undef({})", ty),
             ComptimeVal::Zero(ty) => write!(f, "zero({})", ty),
         }

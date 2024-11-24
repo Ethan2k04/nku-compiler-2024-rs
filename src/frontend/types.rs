@@ -204,6 +204,14 @@ impl Type {
         }
     }
 
+    pub fn unwrap_pointer(&self) -> (&Type) {
+        if let TypeKind::Pointer(_) = self.kind() {
+            self.element_type()
+        } else {
+            panic!("unwrap_pointer: not an pointer type: {}", self);
+        }
+    }
+
     /// Get the parameters and return type of a function type.
     ///
     /// # Panics
