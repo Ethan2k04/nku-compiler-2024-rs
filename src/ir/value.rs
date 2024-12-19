@@ -109,7 +109,7 @@ impl ConstantValue {
 
         match self {
             ConstantValue::Undef { .. } => s.push_str("undef"),
-            ConstantValue::AggregateZero { .. } => s.push_str("0"),
+            ConstantValue::AggregateZero { .. } => s.push_str("zeroinitializer"),
             ConstantValue::Int1 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int8 { value, .. } => s.push_str(&value.to_string()),
             ConstantValue::Int32 { value, .. } => s.push_str(&value.to_string()),

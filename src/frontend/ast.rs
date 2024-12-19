@@ -1029,27 +1029,6 @@ impl Exp {
                     .map(|(arg, ty)| arg.type_check(Some(ty), symtable))
                     .collect();
 
-                // // Type check the arguments
-                // let args = args
-                //     .into_iter()
-                //     .zip(param_tys)
-                //     .map(|(arg, expected_ty)| {
-                //         let mut arg = arg.type_check(None, symtable);
-
-                //         // 特殊处理数组类型
-                //         if let (Tk::Array(exp_elem_ty, exp_len), Tk::Array(arg_elem_ty, _)) =
-                //             (expected_ty.kind(), arg.ty().kind()) {
-                //             if exp_elem_ty == arg_elem_ty && exp_len == &0 {
-                //                 // 允许任意长度的数组转换为长度为0的数组（可变长度）
-                //                 return arg;
-                //             }
-                //         }
-
-                //         // 其他情况进行普通类型检查
-                //         arg.type_check(Some(expected_ty), symtable)
-                //     })
-                //     .collect();
-
                 // Create the function call expression
                 Exp {
                     kind: ExpKind::FuncCall(FuncCall { ident, args }),

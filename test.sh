@@ -1,29 +1,8 @@
 #!/bin/bash
 
-# 检查必要的命令是否存在
-if ! command -v cargo &> /dev/null; then
-  echo "Error: cargo is not installed."
-  exit 1
-fi
-
-if ! command -v clang-15 &> /dev/null; then
-  echo "Error: clang-15 is not installed."
-  exit 1
-fi
-
-if ! command -v riscv64-linux-gnu-gcc &> /dev/null; then
-  echo "Error: riscv64-linux-gnu-gcc is not installed."
-  exit 1
-fi
-
-if ! command -v qemu-riscv64 &> /dev/null; then
-  echo "Error: qemu-riscv64 is not installed."
-  exit 1
-fi
-
 # 步骤 1: 生成中间代码
 # echo "Step 1: Generating intermediate code..."
-# cargo run -- -o test src/test.sy --emit-ast ast --emit-llvm-ir ir.ll
+# cargo run -- -o test test.sy --emit-ast ast --emit-llvm-ir ir.ll
 # if [ $? -ne 0 ]; then
 #   echo "Error: Failed to generate intermediate code."
 #   exit 1

@@ -88,7 +88,10 @@ impl IrGenContext {
             // TODO✔: Implement list
             Cv::List(vals) => ConstantValue::array(&mut self.ctx, (*vals).clone()),
             // TODO✔: Implement zero
-            Cv::Zero(..) => ConstantValue::zero(&mut self.ctx),
+            Cv::Zero(ty) => {
+                let ir_ty: Ty = self.gen_type(ty);
+                ConstantValue::AggregateZero { ty: ir_ty }
+            }
             Cv::Undef(ty) => {
                 let ir_ty = self.gen_type(ty);
                 ConstantValue::undef(&mut self.ctx, ir_ty)
@@ -575,7 +578,7 @@ impl IrGenContext {
                 } else {
                     let current_base_ty = base_ty.clone();
                     // 如果左值是数组（无索引）
-                    if current_base_ty.is_array() {
+                    if current_base_ty.is_array() || current_base_ty.is_pointer() {
                         Some(slot)
                     } else {
                         let load = Inst::load(&mut self.ctx, slot, ir_base_ty);
@@ -691,10 +694,10 @@ impl IrGenContext {
             }
             ExpKind::FuncCall(FuncCall { ident, args }) => {
                 // TODO✔: Implement function call generation
-                let ir_args = args
-                    .iter()
-                    .map(|arg| self.gen_local_expr(arg).unwrap())
-                    .collect();
+                let mut ir_args = Vec::new();
+                for arg in args {
+                    ir_args.push(self.gen_local_expr(arg).unwrap());
+                }
 
                 let ty = exp.ty();
                 let ir_ty = self.gen_type(ty);
@@ -818,7 +821,7 @@ impl IrGen for Item {
                     }
                 }
                 Decl::VarDecl(VarDecl { defs, .. }) => {
-                    for VarDef { ident, init, .. } in defs {
+                    for VarDef { ident, dims, init } in defs {
                         // Note that if the variable is defined without an initializer, aka,
                         // Undefined, we should already assigned their init as `None` in type
                         // checking phase.
@@ -907,7 +910,7 @@ impl IrGen for FuncDef {
 
         // create slots for pass-by-value params
         for (FuncFParam { ident, .. }, ty) in self.params.iter().zip(param_tys.iter()) {
-            if ty.is_int() {
+            if ty.is_int() || ty.is_float() {
                 let ir_ty = irgen.gen_type(ty);
                 let slot = Inst::alloca(&mut irgen.ctx, ir_ty);
 
