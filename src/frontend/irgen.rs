@@ -124,7 +124,8 @@ impl IrGenContext {
             },
             Cv::Undef(ty) => {
                 let ir_ty = self.gen_type(ty);
-                ConstantValue::undef(&mut self.ctx, ir_ty)
+                // ConstantValue::undef(&mut self.ctx, ir_ty)
+                ConstantValue::AggregateZero { ty: ir_ty }
             }
         }
     }
@@ -782,7 +783,7 @@ impl IrGenContext {
             ("getarray", vec![ptr], i32),              // int getarray(int[])
             ("putarray", vec![i32, ptr], void),        // void putarray(int, int[])
             ("getfarray", vec![ptr], i32),             // int getfarray(float[])
-            ("putfarray", vec![f32, ptr], void),       // void putfarray(int, float[])
+            ("putfarray", vec![i32, ptr], void),       // void putfarray(int, float[])
             ("starttime", vec![i32], void),            // void _sysy_starttime(int)
             ("stoptime", vec![i32], void),             // void _sysy_stoptime(int)
         ];
@@ -1430,11 +1431,16 @@ impl IrGen for Decl {
                                                     );
                                                 }
                                                 Cv::Zero(ty) => {
+                                                    // println!("zero init: {:?}", ty);
                                                     match ty.kind() {
                                                         // 基本类型的零初始化
                                                         Tk::Int | Tk::Float | Tk::Bool => {
                                                             let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
                                                             complete_indices.extend(curr_indices.iter().cloned());
+
+                                                            // println!("complete_indices: {:?}", complete_indices);
+
+                                                            
                                                             
                                                             let elem_ptr = Inst::getelementptr(
                                                                 &mut irgen.ctx,
@@ -1482,6 +1488,12 @@ impl IrGen for Decl {
                                                                         // 处理基本类型
                                                                         let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
                                                                         complete_indices.extend(curr_indices.iter().cloned());
+
+                                                                        if complete_indices.len() == 5 {
+                                                                            // 去掉中间第三个 0
+                                                                            println!("complete_indices: {:?}", complete_indices);
+                                                                            complete_indices.remove(2);
+                                                                        }
                                                                         
                                                                         let elem_ptr = Inst::getelementptr(
                                                                             &mut irgen.ctx,

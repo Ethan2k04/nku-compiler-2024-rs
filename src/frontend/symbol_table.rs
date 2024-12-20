@@ -99,7 +99,7 @@ impl SymbolTable {
         self.insert("putch", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
         self.insert("putfloat", SymbolEntry::from_ty(Type::func(vec![Type::float()], Type::void())));
         self.insert("putarray", SymbolEntry::from_ty(Type::func(vec![Type::int(), Type::pointer(Type::int())], Type::void())));
-        self.insert("putfarray", SymbolEntry::from_ty(Type::func(vec![Type::float(), Type::pointer(Type::float())], Type::void())));
+        self.insert("putfarray", SymbolEntry::from_ty(Type::func(vec![Type::int(), Type::pointer(Type::float())], Type::void())));
 
         self.insert("starttime", SymbolEntry::from_ty(Type::func(vec![], Type::void())));
         self.insert("stoptime", SymbolEntry::from_ty(Type::func(vec![], Type::void())));
