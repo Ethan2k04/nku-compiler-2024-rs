@@ -1,5 +1,8 @@
 //! IR generation from AST.
 
+use std::array;
+use std::ops::Index;
+
 use super::ast::{
     self,
     BinaryOp,
@@ -102,9 +105,23 @@ impl IrGenContext {
             Cv::Int(a) => ConstantValue::i32(&mut self.ctx, *a as i32),
             Cv::Float(a) => ConstantValue::f32(&mut self.ctx, *a),
             // TODO: Implement list
-            Cv::List( .. ) => todo!(),
+            Cv::List(elems) => {
+                let elem_values: Vec<ConstantValue> = elems.iter()
+                    .map(|elem| self.gen_global_comptime(elem))
+                    .collect();
+
+                let ty = self.gen_type(&val.get_type());
+
+                ConstantValue::Array { 
+                    ty,
+                    elems: elem_values 
+                }
+            },
             // TODO: Implement zero
-            Cv::Zero(..) => todo!(),
+            Cv::Zero(ty) => {
+                let ir_ty = self.gen_type(ty);
+                ConstantValue::AggregateZero { ty: ir_ty }
+            },
             Cv::Undef(ty) => {
                 let ir_ty = self.gen_type(ty);
                 ConstantValue::undef(&mut self.ctx, ir_ty)
@@ -119,9 +136,59 @@ impl IrGenContext {
             Cv::Int(a) => Value::i32(&mut self.ctx, *a as i32),
             Cv::Float(a) => Value::f32(&mut self.ctx, *a),
             // TODO: Implement list
-            Cv::List(..) => todo!(),
+            Cv::List(elems) => {
+                todo!("list initialization");
+            },
             // TODO: Implement zero
-            Cv::Zero(..) => todo!(),
+            Cv::Zero(ty) => {   
+                if ty.is_bool() {
+                    Value::i1(&mut self.ctx, false)
+                } else if ty.is_int() {
+                    Value::i32(&mut self.ctx, 0)
+                } else if ty.is_float() {
+                    Value::f32(&mut self.ctx, 0.0)
+                } else {
+                    unreachable!("unexpected type for zero initialization")
+                }
+
+                // fn gen_zero(ctx: &mut Context, ty: &Type) -> ConstantValue  {
+                //     match ty.kind() {
+                //         Tk::Bool => ConstantValue::i1(ctx, false),
+                //         Tk::Int => ConstantValue::i32(ctx, 0),
+                //         Tk::Float => ConstantValue::f32(ctx, 0.0),
+                //         Tk::Array(base_ty, size, ) => {
+                //             let mut elem_values = Vec::new();
+                //             // 递归处理每个元素
+                //             for _ in 0..*size {
+                //                 elem_values.push(gen_zero(ctx, base_ty));
+                //             }
+                //             let array_ty = from_type(ctx, base_ty);
+                //             let ir_ty = Ty::array(ctx, array_ty, *size);
+                //             ConstantValue::Array { ty: ir_ty, elems: elem_values }
+                //         }
+                //         _ => unreachable!("unexpected type for zero initialization")
+                //     }
+                // }
+
+                // fn from_type(ctx: &mut Context, ty: &Type) -> Ty {
+                //     match ty.kind() {
+                //         Tk::Void => Ty::void(ctx),
+                //         Tk::Bool => Ty::i1(ctx),
+                //         Tk::Int => Ty::i32(ctx),
+                //         Tk::Float => Ty::f32(ctx),
+                //         Tk::Pointer(..) => Ty::ptr(ctx),
+                //         Tk::Array (base, size) => {
+                //             let ir_base = from_type(ctx, base);
+                //             Ty::array(ctx, ir_base, *size)
+                //         },
+                //         Tk::Func(..) => unreachable!("function type should be handled separately"),
+                //     }
+                // }
+
+                // let constant = gen_zero(&mut self.ctx, ty);
+                // println!("constant: {:#?}", constant);
+                // Value::zero(&mut self.ctx, constant)
+            },
             Cv::Undef(ty) => {
                 let ir_ty = self.gen_type(ty);
                 Value::undef(&mut self.ctx, ir_ty)
@@ -466,16 +533,16 @@ impl IrGenContext {
                 }
             },
             // LValues -> Get the value
-            ExpKind::LVal(LVal { ident, ..}) => {
-                // TODO: Add support for array indexing
-                // Look up the symbol in the symbol table to get the IR value
+            ExpKind::LVal(LVal { ident, indices }) => {
                 let entry = self.symtable.lookup(ident).unwrap();
+                // println!("entry: {:#?}", entry.ty);
                 let ir_value = entry.ir_value.unwrap();
-
+                let base_ty = &entry.ty.clone();
                 let ir_base_ty = self.gen_type(&entry.ty.clone());
-
-                let slot = if let IrGenResult::Global(slot) = ir_value {
+                // println!("ir_base_ty: is_array {:#?}", ir_base_ty.is_array(&self.ctx));
+                let base_slot = if let IrGenResult::Global(slot) = ir_value {
                     // If the value is a global, get the global reference
+                    // print!("which one is called? 0");
                     let name = slot.name(&self.ctx).to_string();
                     let value_ty = slot.ty(&self.ctx);
                     Value::global_ref(&mut self.ctx, name, value_ty)
@@ -485,30 +552,117 @@ impl IrGenContext {
                 } else {
                     unreachable!()
                 };
-
-                if slot.is_param(&self.ctx) {
-                    // If the value is a parameter, just return the value
-                    Some(slot)
+                // println!("base_slot: is_ptr {:#?}", base_slot.ty(&self.ctx).is_ptr(&self.ctx));
+                // println!("base_slot: is_param {:#?}", base_slot.is_param(&self.ctx));
+                if indices.is_empty() {
+                    // 没有数组索引的情况
+                    if base_slot.is_param(&self.ctx) {
+                        // 如果是参数，直接返回值（因为参数已经是指针了）
+                        // println!("which one is called? 1");
+                        Some(base_slot)
+                    } else {
+                        // 检查表达式的类型
+                        // println!("which one is called? 2");
+                        match self.curr_block {
+                            Some(curr_block) => {
+                                // 如果当前表达式要求的类型是指针(说明是在函数调用中作为数组参数)
+                                if let Some(ty) = exp.ty.as_ref() {
+                                    if let Tk::Pointer(_) = ty.kind() {
+                                        // 数组到指针的转换 - 直接返回基地址
+                                        return Some(base_slot);
+                                    } else if let Tk::Array(_, _) = ty.kind() {
+                                        // 如果是数组类型，直接返回基地址
+                                        return Some(base_slot);
+                                        
+                                    }
+                                }
+                                // 其他情况需要 load
+                                let load = Inst::load(&mut self.ctx, base_slot, ir_base_ty);
+                                curr_block.push_back(&mut self.ctx, load).unwrap();
+                                Some(load.result(&self.ctx).unwrap())
+                            }
+                            None => Some(base_slot),
+                        }
+                    }
                 } else {
-                    // Otherwise, we need to load the value, generate a load instruction
-                    let load = Inst::load(&mut self.ctx, slot, ir_base_ty);
+                    // 有数组索引的情况
+                    // println!("which one is called? 3");
+                    let mut gep_indices = vec![Value::i32(&mut self.ctx, 0)]; // 第一个索引总是0
+                    
+                    // 生成所有索引的值
+                    for idx_exp in indices {
+                        let idx_val = self.gen_local_expr(idx_exp).unwrap();
+                        gep_indices.push(idx_val);
+                    }
+                    // println!("ir_base_ty: {:#?}", ir_base_ty);
+                    // println!("ir_base_ty: is_array {:#?}", ir_base_ty.is_array(&self.ctx));
+                    // println!("ir_base_ty: is_ptr {:#?}", ir_base_ty.is_ptr(&self.ctx));
+
+                    let bound_ty = if base_ty.is_pointer() {
+                        gep_indices.remove(0);
+                        self.gen_type(base_ty.unwrap_pointer())
+                    }  else {
+                        self.gen_type(base_ty)
+                    };
+
+                    // 使用GEP指令计算元素地址
+                    let elem_ptr = Inst::getelementptr(
+                        &mut self.ctx,
+                        bound_ty,
+                        base_slot,
+                        gep_indices
+                    );
+                    curr_block.push_back(&mut self.ctx, elem_ptr).unwrap();
+            
+                    // 对计算出的地址进行load操作
+                    let target_ty = match base_ty.kind() {
+                        Tk::Array(elem_ty, _) => {
+                            // 对于多维数组，需要根据索引次数来确定最终的元素类型
+                            let mut curr_ty = elem_ty;
+                            for _ in indices.iter().skip(1) {
+                                if let Tk::Array(next_ty, _) = curr_ty.kind() {
+                                    curr_ty = next_ty;
+                                }
+                            }
+                            // println!("curr_ty: {:#?}", curr_ty);
+                            self.gen_type(curr_ty)
+                        }
+                        Tk::Pointer(elem_ty) => {
+                            let mut elem_ty = elem_ty;
+                            while let Tk::Array(ty, ..) = elem_ty.kind() {
+                                elem_ty = ty;
+                            }
+                            // println!("elem_ty: {:#?}", elem_ty);
+                            self.gen_type(elem_ty)
+                        },
+                        _ => unreachable!("base_ty must be array or pointer"),
+                    };
+                    
+                    let tmp = elem_ptr.result(&self.ctx).unwrap();
+                    // println!("target_ty: {:#?}", target_ty);
+                    let load = Inst::load(
+                        &mut self.ctx,
+                        tmp,
+                        target_ty
+                    );
                     curr_block.push_back(&mut self.ctx, load).unwrap();
                     Some(load.result(&self.ctx).unwrap())
                 }
             }
             ExpKind::Coercion(expr) => {
                 // TODO✔: Implement coercion generation
-                let val = self.gen_local_expr(expr).unwrap();
                 let from_ty = expr.ty().kind();
                 let to_ty = exp.ty().kind();
                 match (from_ty, to_ty) {
                     (Tk::Bool, Tk::Int) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i32_ty = Ty::i32(&mut self.ctx);
                         let cast = Inst::cast(&mut self.ctx, CastOp::Zext, val, i32_ty);
                         curr_block.push_back(&mut self.ctx, cast).unwrap();
                         Some(cast.result(&self.ctx).unwrap())
                     }
                     (Tk::Int, Tk::Bool) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let zero = Value::i32(&mut self.ctx, 0);
                         let i1_ty = Ty::i1(&mut self.ctx);
                         let icmp = Inst::int_binary(
@@ -522,18 +676,21 @@ impl IrGenContext {
                         Some(icmp.result(&self.ctx).unwrap())
                     }
                     (Tk::Int, Tk::Float) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let f32_ty = Ty::f32(&mut self.ctx);
                         let cast = Inst::cast(&mut self.ctx, CastOp::SiToFp, val, f32_ty);
                         curr_block.push_back(&mut self.ctx, cast).unwrap();
                         Some(cast.result(&self.ctx).unwrap())
                     }
                     (Tk::Float, Tk::Int) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i32_ty = Ty::i32(&mut self.ctx);
                         let cast = Inst::cast(&mut self.ctx, CastOp::FpToSi, val, i32_ty);
                         curr_block.push_back(&mut self.ctx, cast).unwrap();
                         Some(cast.result(&self.ctx).unwrap())
                     }
                     (Tk::Bool, Tk::Float) => {
+                        let val = self.gen_local_expr(expr).unwrap();
                         // bool -> int -> float
                         let i32_ty = Ty::i32(&mut self.ctx);
                         let f32_ty = Ty::f32(&mut self.ctx);
@@ -552,6 +709,7 @@ impl IrGenContext {
                     }
                     (Tk::Float, Tk::Bool) => {
                         // float -> bool
+                        let val = self.gen_local_expr(expr).unwrap();
                         let i1_ty = Ty::i1(&mut self.ctx);
                         let fzero = Value::f32(&mut self.ctx, 0.0);
 
@@ -566,7 +724,11 @@ impl IrGenContext {
                         curr_block.push_back(&mut self.ctx, fcmp).unwrap();
                         Some(fcmp.result(&self.ctx).unwrap())
                     }
-                    (Tk::Array(..), Tk::Pointer(_)) => self.gen_local_expr(expr),
+                    (Tk::Array(..), Tk::Pointer(_)) => {
+                        // println!("array to pointer");
+                        // println!("expr: {:#?}", expr);
+                        self.gen_local_expr(expr)
+                    },
                     _ => unreachable!("invalid coercion: {:#?} -> {:#?}", from_ty, to_ty),
                 }
             }
@@ -738,10 +900,22 @@ impl IrGen for FuncDef {
         irgen.symtable.enter_scope();
 
         let mut param_tys = Vec::new();
-        for FuncFParam { ty, .. } in self.params.iter() {
+        for param in self.params.iter() {
+            let ty = if let Some(ref indices) = param.dims {
+                let mut ty = param.ty.clone();
+                for dim in indices.iter().rev() {
+                    let dim = dim.try_fold(&irgen.symtable).expect("const expr expected");
+                    ty = Type::array(ty, dim.unwrap_int() as usize);
+                }
+                ty = Type::pointer(ty);
+                ty
+            } else {
+                param.ty.clone()
+            };
+            // println!("{:#?}", ty);
             param_tys.push(ty.clone());
+            irgen.symtable.insert(param.ident.clone(), SymbolEntry::from_ty(ty));
         }
-
         let func_ty = Type::func(param_tys.clone(), self.ret_ty.clone());
 
         let ir_ret_ty = irgen.gen_type(&self.ret_ty);
@@ -781,7 +955,7 @@ impl IrGen for FuncDef {
 
         // create slots for pass-by-value params
         for (FuncFParam { ident, .. }, ty) in self.params.iter().zip(param_tys.iter()) {
-            if ty.is_int() {
+            if ty.is_int() || ty.is_float() {
                 let ir_ty = irgen.gen_type(ty);
                 let slot = Inst::alloca(&mut irgen.ctx, ir_ty);
 
@@ -894,10 +1068,178 @@ impl IrGen for Decl {
                             )),
                         },
                     );
-                    let init = irgen.gen_local_expr(init).unwrap();
-                    let slot = stack_slot.result(&irgen.ctx).unwrap();
-                    let store = Inst::store(&mut irgen.ctx, init, slot);
-                    curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                    if init.ty().is_array() {
+                        fn store_array_init(
+                            irgen: &mut IrGenContext, 
+                            array_slot: Value,
+                            init: &Cv,
+                            curr_indices: &mut Vec<Value>,
+                            curr_block: Block,
+                            array_ty: &Type,
+                            full_ty: &Type
+                        ) {
+                            let bound_ty = irgen.gen_type(full_ty);
+                    
+                            match init {
+                                Cv::List(elems) => {
+                                    for (i, elem) in elems.iter().enumerate() {
+                                        let idx = Value::i32(&mut irgen.ctx, i as i32);
+                                        curr_indices.push(idx);
+                                        
+                                        match elem {
+                                            Cv::List(_) => {
+                                                if let Tk::Array(elem_ty, _) = array_ty.kind() {
+                                                    store_array_init(
+                                                        irgen, 
+                                                        array_slot, 
+                                                        elem, 
+                                                        curr_indices, 
+                                                        curr_block, 
+                                                        elem_ty,
+                                                        full_ty
+                                                    );
+                                                }
+                                            }
+                                            Cv::Zero(ty) => {
+                                                match ty.kind() {
+                                                    Tk::Array(elem_ty, size) => {
+                                                        store_array_init(
+                                                            irgen,
+                                                            array_slot,
+                                                            &Cv::Zero(ty.clone()),
+                                                            curr_indices,
+                                                            curr_block,
+                                                            ty,
+                                                            full_ty
+                                                        );
+                                                    }
+                                                    _ => {
+                                                        // 确保有完整的索引链
+                                                        let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                        complete_indices.extend(curr_indices.iter().cloned());
+                                                        
+                                                        let elem_ptr = Inst::getelementptr(
+                                                            &mut irgen.ctx,
+                                                            bound_ty,
+                                                            array_slot,
+                                                            complete_indices
+                                                        );
+                                                        curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                        
+                                                        let zero_val = match ty.kind() {
+                                                            Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                            Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                            Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                            _ => unreachable!("Invalid zero type")
+                                                        };
+                                                        
+                                                        let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                        let store = Inst::store(
+                                                            &mut irgen.ctx,
+                                                            zero_val,
+                                                            ptr_tmp
+                                                        );
+                                                        curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                                    }
+                                                }
+                                            }
+                                            _ => {
+                                                // 确保有完整的索引链
+                                                let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                complete_indices.extend(curr_indices.iter().cloned());
+                    
+                                                let elem_ptr = Inst::getelementptr(
+                                                    &mut irgen.ctx,
+                                                    bound_ty,
+                                                    array_slot, 
+                                                    complete_indices
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                
+                                                let elem_val = match elem {
+                                                    Cv::Int(i) => Value::i32(&mut irgen.ctx, *i as i32),
+                                                    Cv::Float(f) => Value::f32(&mut irgen.ctx, *f),
+                                                    Cv::Bool(b) => Value::i1(&mut irgen.ctx, *b),
+                                                    _ => unreachable!("Invalid array element type")
+                                                };
+                                                
+                                                let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                let store = Inst::store(
+                                                    &mut irgen.ctx,
+                                                    elem_val,
+                                                    ptr_tmp
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                            }
+                                        }
+                                        curr_indices.pop();
+                                    }
+                                }
+                                Cv::Zero(ty) => {
+                                    if let Tk::Array(elem_ty, size) = ty.kind() {
+                                        for i in 0..*size {
+                                            let idx = Value::i32(&mut irgen.ctx, i as i32);
+                                            curr_indices.push(idx);
+                                            
+                                            if elem_ty.is_array() {
+                                                store_array_init(
+                                                    irgen,
+                                                    array_slot,
+                                                    &Cv::Zero(elem_ty.clone()),
+                                                    curr_indices,
+                                                    curr_block,
+                                                    elem_ty,
+                                                    full_ty
+                                                );
+                                            } else {
+                                                // 确保有完整的索引链
+                                                let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                complete_indices.extend(curr_indices.iter().cloned());
+                    
+                                                let elem_ptr = Inst::getelementptr(
+                                                    &mut irgen.ctx,
+                                                    bound_ty,
+                                                    array_slot,
+                                                    complete_indices
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                    
+                                                let zero_val = match elem_ty.kind() {
+                                                    Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                    Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                    Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                    _ => unreachable!()
+                                                };
+                    
+                                                let ptr_temp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                let store = Inst::store(
+                                                    &mut irgen.ctx,
+                                                    zero_val,
+                                                    ptr_temp
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                            }
+                                            curr_indices.pop();
+                                        }
+                                    }
+                                }
+                                _ => unreachable!("Invalid array initializer")
+                            }
+                        }
+                    
+                        let init_val = init.try_fold(&irgen.symtable)
+                            .expect("array init must be constant"); 
+                        
+                        let slot = stack_slot.result(&irgen.ctx).unwrap();
+                        let mut indices = Vec::new();
+                        let full_ty = init.ty();
+                        store_array_init(irgen, slot, &init_val, &mut indices, curr_block, &full_ty, &full_ty);
+                    } else {
+                        let init = irgen.gen_local_expr(init).unwrap();
+                        let slot = stack_slot.result(&irgen.ctx).unwrap();
+                        let store = Inst::store(&mut irgen.ctx, init, slot);
+                        curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                    }
                 }
             }
             Decl::VarDecl(VarDecl { defs, .. }) => {
@@ -918,10 +1260,401 @@ impl IrGen for Decl {
                         },
                     );
 
-                    let init = irgen.gen_local_expr(init).unwrap();
-                    let slot = stack_slot.result(&irgen.ctx).unwrap();
-                    let store = Inst::store(&mut irgen.ctx, init, slot);
-                    curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                    if init.ty().is_array() {
+                        // 处理局部数组初始化
+                        fn store_local_array_init(
+                            irgen: &mut IrGenContext,
+                            array_slot: Value,
+                            init: &Exp,
+                            curr_indices: &mut Vec<Value>,
+                            curr_block: Block,
+                            array_ty: &Type,
+                            full_ty: &Type
+                        ) {
+                            let bound_ty = irgen.gen_type(full_ty);
+                            
+                            match &init.kind {
+                                ExpKind::InitList(elems) => {
+                                    // 遍历初始化列表的每个元素
+                                    for (i, elem) in elems.iter().enumerate() {
+                                        let idx = Value::i32(&mut irgen.ctx, i as i32);
+                                        curr_indices.push(idx);
+                                        
+                                        match &elem.kind {
+                                            ExpKind::InitList(_) => {
+                                                if let Tk::Array(elem_ty, _) = array_ty.kind() {
+                                                    store_local_array_init(
+                                                        irgen,
+                                                        array_slot,
+                                                        elem,
+                                                        curr_indices,
+                                                        curr_block,
+                                                        elem_ty,
+                                                        full_ty
+                                                    );
+                                                }
+                                            }
+                                            ExpKind::Const(Cv::Zero(ty)) => {
+                                                // 对于零初始化，根据类型分别处理
+                                                if ty.is_array() {
+                                                    if let Tk::Array(elem_ty, size) = ty.kind() {
+                                                        for i in 0..*size {
+                                                            let sub_idx = Value::i32(&mut irgen.ctx, i as i32);
+                                                            curr_indices.push(sub_idx);
+                                                            
+                                                            if elem_ty.is_array() {
+                                                                store_local_array_init(
+                                                                    irgen,
+                                                                    array_slot,
+                                                                    &Exp::const_(Cv::Zero(elem_ty.clone())),
+                                                                    curr_indices,
+                                                                    curr_block,
+                                                                    elem_ty,
+                                                                    full_ty
+                                                                );
+                                                            } else {
+                                                                let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                                complete_indices.extend(curr_indices.iter().cloned());
+                                        
+                                                                let elem_ptr = Inst::getelementptr(
+                                                                    &mut irgen.ctx,
+                                                                    bound_ty,
+                                                                    array_slot,
+                                                                    complete_indices
+                                                                );
+                                                                curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                        
+                                                                let zero_val = match elem_ty.kind() {
+                                                                    Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                                    Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                                    Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                                    _ => unreachable!()
+                                                                };
+                                        
+                                                                let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                                let store = Inst::store(
+                                                                    &mut irgen.ctx,
+                                                                    zero_val,
+                                                                    ptr_tmp
+                                                                );
+                                                                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                                            }
+                                                            curr_indices.pop();
+                                                        }
+                                                    }
+                                                } else {
+                                                    // 基本类型的零初始化
+                                                    let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                    complete_indices.extend(curr_indices.iter().cloned());
+                                                    
+                                                    let elem_ptr = Inst::getelementptr(
+                                                        &mut irgen.ctx,
+                                                        bound_ty,
+                                                        array_slot,
+                                                        complete_indices
+                                                    );
+                                                    curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                    
+                                                    let zero_val = match ty.kind() {
+                                                        Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                        Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                        Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                        _ => unreachable!("Invalid zero type")
+                                                    };
+                                                    
+                                                    let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                    let store = Inst::store(
+                                                        &mut irgen.ctx,
+                                                        zero_val,
+                                                        ptr_tmp
+                                                    );
+                                                    curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                                }
+                                            }
+                                            _ => {
+                                                // 确保有完整的索引链
+                                                let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                complete_indices.extend(curr_indices.iter().cloned());
+                                                
+                                                // 生成 GEP 指令获取元素地址
+                                                let elem_ptr = Inst::getelementptr(
+                                                    &mut irgen.ctx,
+                                                    bound_ty,
+                                                    array_slot,
+                                                    complete_indices
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                
+                                                // 生成元素的值
+                                                let elem_val = irgen.gen_local_expr(elem).unwrap();
+                                                
+                                                // 存储元素值
+                                                let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                let store = Inst::store(
+                                                    &mut irgen.ctx,
+                                                    elem_val,
+                                                    ptr_tmp
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                            }
+                                        }
+                                        curr_indices.pop();
+                                    }
+                                }
+                                ExpKind::Const(Cv::List(elems)) => {
+                                    // 处理常量初始化列表
+                                    fn store_const_list(
+                                        irgen: &mut IrGenContext,
+                                        array_slot: Value,
+                                        elems: &[Cv],
+                                        curr_indices: &mut Vec<Value>,
+                                        curr_block: Block,
+                                        bound_ty: Ty
+                                    ) {
+                                        for (i, elem) in elems.iter().enumerate() {
+                                            let idx = Value::i32(&mut irgen.ctx, i as i32);
+                                            curr_indices.push(idx);
+                                            
+                                            match elem {
+                                                Cv::List(sub_elems) => {
+                                                    store_const_list(
+                                                        irgen,
+                                                        array_slot, 
+                                                        sub_elems,
+                                                        curr_indices,
+                                                        curr_block,
+                                                        bound_ty
+                                                    );
+                                                }
+                                                Cv::Zero(ty) => {
+                                                    match ty.kind() {
+                                                        // 基本类型的零初始化
+                                                        Tk::Int | Tk::Float | Tk::Bool => {
+                                                            let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                            complete_indices.extend(curr_indices.iter().cloned());
+                                                            
+                                                            let elem_ptr = Inst::getelementptr(
+                                                                &mut irgen.ctx,
+                                                                bound_ty,
+                                                                array_slot,
+                                                                complete_indices
+                                                            );
+                                                            curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                            
+                                                            let zero_val = match ty.kind() {
+                                                                Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                                Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                                Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                                _ => unreachable!()
+                                                            };
+                                                            
+                                                            let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                            let store = Inst::store(
+                                                                &mut irgen.ctx,
+                                                                zero_val,
+                                                                ptr_tmp
+                                                            );
+                                                            curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                                        }
+                                                        // 数组类型的零初始化
+                                                        Tk::Array(elem_ty, size) => {
+                                                            for j in 0..*size {
+                                                                let sub_idx = Value::i32(&mut irgen.ctx, j as i32); 
+                                                                curr_indices.push(sub_idx);
+                                                                
+                                                                let zero_elem = Cv::Zero(elem_ty.clone());
+                                                                match elem_ty.kind() {
+                                                                    Tk::Array(..) => {
+                                                                        // 递归处理子数组
+                                                                        store_const_list(
+                                                                            irgen,
+                                                                            array_slot,
+                                                                            &[zero_elem],
+                                                                            curr_indices,
+                                                                            curr_block,
+                                                                            bound_ty
+                                                                        );
+                                                                    }
+                                                                    _ => {
+                                                                        // 处理基本类型
+                                                                        let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                                        complete_indices.extend(curr_indices.iter().cloned());
+                                                                        
+                                                                        let elem_ptr = Inst::getelementptr(
+                                                                            &mut irgen.ctx,
+                                                                            bound_ty,
+                                                                            array_slot,
+                                                                            complete_indices
+                                                                        );
+                                                                        curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                                        
+                                                                        let zero_val = match elem_ty.kind() {
+                                                                            Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                                            Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                                            Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                                            _ => unreachable!()
+                                                                        };
+                                                                        
+                                                                        let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                                        let store = Inst::store(
+                                                                            &mut irgen.ctx,
+                                                                            zero_val,
+                                                                            ptr_tmp
+                                                                        );
+                                                                        curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                                                    }
+                                                                }
+                                                                curr_indices.pop();
+                                                            }
+                                                        }
+                                                        _ => unreachable!()
+                                                    }
+                                                }
+                                                other => {
+                                                    // 处理其他类型的常量
+                                                    let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                    complete_indices.extend(curr_indices.iter().cloned());
+                                                    
+                                                    let elem_ptr = Inst::getelementptr(
+                                                        &mut irgen.ctx,
+                                                        bound_ty,
+                                                        array_slot,
+                                                        complete_indices
+                                                    );
+                                                    curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                                                    
+                                                    let elem_val = match other {
+                                                        Cv::Int(i) => Value::i32(&mut irgen.ctx, *i as i32),
+                                                        Cv::Float(f) => Value::f32(&mut irgen.ctx, *f),
+                                                        Cv::Bool(b) => Value::i1(&mut irgen.ctx, *b),
+                                                        _ => unreachable!("Invalid constant array element")
+                                                    };
+                                                    
+                                                    let ptr_tmp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                    let store = Inst::store(
+                                                        &mut irgen.ctx,
+                                                        elem_val,
+                                                        ptr_tmp
+                                                    );
+                                                    curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                                }
+                                            }
+                                            curr_indices.pop();
+                                        }
+                                    }
+                                    
+                                    store_const_list(irgen, array_slot, elems, curr_indices, curr_block, bound_ty);
+                                }
+                                ExpKind::Const(Cv::Zero(ty)) => {
+                                    // 处理零初始化
+                                    if let Tk::Array(elem_ty, size) = ty.kind() {
+                                        for i in 0..*size {
+                                            let idx = Value::i32(&mut irgen.ctx, i as i32);
+                                            curr_indices.push(idx);
+                                            
+                                            if elem_ty.is_array() {
+                                                store_local_array_init(
+                                                    irgen,
+                                                    array_slot,
+                                                    &Exp::const_(Cv::Zero(elem_ty.clone())),
+                                                    curr_indices,
+                                                    curr_block,
+                                                    elem_ty,
+                                                    full_ty
+                                                );
+                                            } else {
+                                                let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                complete_indices.extend(curr_indices.iter().cloned());
+                    
+                                                let elem_ptr = Inst::getelementptr(
+                                                    &mut irgen.ctx,
+                                                    bound_ty,
+                                                    array_slot,
+                                                    complete_indices
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                    
+                                                let zero_val = match elem_ty.kind() {
+                                                    Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                    Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                    Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                    _ => unreachable!()
+                                                };
+                    
+                                                let ptr_temp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                let store = Inst::store(
+                                                    &mut irgen.ctx,
+                                                    zero_val,
+                                                    ptr_temp
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                            }
+                                            curr_indices.pop();
+                                        }
+                                    }
+                                }
+                                ExpKind::Const(Cv::Undef(ty)) => {
+                                    // 处理未定义初始化
+                                    if let Tk::Array(elem_ty, size) = ty.kind() {
+                                        for i in 0..*size {
+                                            let idx = Value::i32(&mut irgen.ctx, i as i32);
+                                            curr_indices.push(idx);
+                                            
+                                            if elem_ty.is_array() {
+                                                store_local_array_init(
+                                                    irgen,
+                                                    array_slot,
+                                                    &Exp::const_(Cv::Undef(elem_ty.clone())),
+                                                    curr_indices,
+                                                    curr_block,
+                                                    elem_ty,
+                                                    full_ty
+                                                );
+                                            } else {
+                                                let mut complete_indices = vec![Value::i32(&mut irgen.ctx, 0)];
+                                                complete_indices.extend(curr_indices.iter().cloned());
+                    
+                                                let elem_ptr = Inst::getelementptr(
+                                                    &mut irgen.ctx,
+                                                    bound_ty,
+                                                    array_slot,
+                                                    complete_indices
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                    
+                                                let undef_val = match elem_ty.kind() {
+                                                    Tk::Int => Value::i32(&mut irgen.ctx, 0),
+                                                    Tk::Float => Value::f32(&mut irgen.ctx, 0.0),
+                                                    Tk::Bool => Value::i1(&mut irgen.ctx, false),
+                                                    _ => unreachable!()
+                                                };
+                    
+                                                let ptr_temp = elem_ptr.result(&mut irgen.ctx).unwrap();
+                                                let store = Inst::store(
+                                                    &mut irgen.ctx,
+                                                    undef_val,
+                                                    ptr_temp
+                                                );
+                                                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                                            }
+                                            curr_indices.pop();
+                                        }
+                                    }
+                                }
+                                _ => unreachable!("Invalid array initializer {}", init)
+                            }
+                        }
+                    
+                        let slot = stack_slot.result(&irgen.ctx).unwrap();
+                        let mut indices = Vec::new();
+                        let full_ty = init.ty();
+                        store_local_array_init(irgen, slot, init, &mut indices, curr_block, &full_ty, &full_ty);
+                    } else {
+                        let init = irgen.gen_local_expr(init).unwrap();
+                        let slot = stack_slot.result(&irgen.ctx).unwrap();
+                        let store = Inst::store(&mut irgen.ctx, init, slot);
+                        curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                    }
                 }
             }
         }
@@ -946,7 +1679,7 @@ impl IrGen for Stmt {
         let curr_block = irgen.curr_block.unwrap();
 
         match self {
-            Stmt::Assign(AssignStmt { lval: LVal { ident, .. }, exp }) => {
+            Stmt::Assign(AssignStmt { lval: LVal { ident, indices }, exp }) => {
                 // XXX: Add support for array indexing, Not sure if we need to implement it
                 let entry = irgen.symtable.lookup(ident).unwrap();
                 let ir_value = entry.ir_value.unwrap();
@@ -961,11 +1694,44 @@ impl IrGen for Stmt {
                     unreachable!()
                 };
 
-                let store_dst = slot;
+                if indices.is_empty() {
+                    let store_dst = slot;
 
-                let val = irgen.gen_local_expr(exp).unwrap();
-                let store = Inst::store(&mut irgen.ctx, val, store_dst);
-                curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                    let val = irgen.gen_local_expr(exp).unwrap();
+                    let store = Inst::store(&mut irgen.ctx, val, store_dst);
+                    curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                } else {
+                    let base_ty = entry.ty.clone();
+                    let ir_base_ty = irgen.gen_type(&entry.ty.clone());
+
+                    let mut gep_indices = vec![Value::i32(&mut irgen.ctx, 0)]; // 第一个索引总是0
+                    for idx_exp in indices {
+                        let idx_val = irgen.gen_local_expr(idx_exp).unwrap();
+                        gep_indices.push(idx_val);
+                    }
+
+                    let bound_ty = if base_ty.is_pointer() {
+                        gep_indices.remove(0);
+                        irgen.gen_type(base_ty.unwrap_pointer())
+                    } else {
+                        irgen.gen_type(&base_ty)
+                    };
+                    
+                    let elem_ptr = Inst::getelementptr(
+                        &mut irgen.ctx,
+                        bound_ty,
+                        slot,
+                        gep_indices
+                    );
+                    curr_block.push_back(&mut irgen.ctx, elem_ptr).unwrap();
+                    
+                    let val = irgen.gen_local_expr(exp).unwrap();
+                    let ptr = elem_ptr.result(&irgen.ctx).unwrap();
+                    let store = Inst::store(&mut irgen.ctx, val, ptr);
+                    curr_block.push_back(&mut irgen.ctx, store).unwrap();
+                }
+
+                
             }
             Stmt::Exp(ExpStmt { exp }) => {
                 if let Some(ref exp) = exp {

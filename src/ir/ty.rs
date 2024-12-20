@@ -97,6 +97,14 @@ impl Ty {
         matches!(self.try_deref(ctx).unwrap(), TyData::Float32)
     }
 
+    pub fn is_ptr(&self, ctx: &Context) -> bool {
+        matches!(self.try_deref(ctx).unwrap(), TyData::Ptr)
+    }
+
+    pub fn is_array(&self, ctx: &Context) -> bool {
+        matches!(self.try_deref(ctx).unwrap(), TyData::Array { .. })
+    }
+
     /// Get the bit width of the type.
     pub fn bitwidth(&self, ctx: &Context) -> usize {
         match self.try_deref(ctx).unwrap() {

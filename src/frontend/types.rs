@@ -133,7 +133,7 @@ impl Type {
     pub fn is_float(&self) -> bool { matches!(self.kind(), TypeKind::Float) }
 
     // Check if the type is an array type.
-    pub fn is_array(&self) -> bool { matches!(self.kind(), TypeKind::Array(_, _)) }
+    pub fn is_array(&self) -> bool { matches!(self.kind(), TypeKind::Array(..)) }
 
     // Check if the type is a pointer type.
     pub fn is_pointer(&self) -> bool { matches!(self.kind(), TypeKind::Pointer(_)) }
@@ -160,6 +160,19 @@ impl Type {
             (t, *len)
         } else {
             panic!("unwrap_array: not an array type: {}", self);
+        }
+    }
+
+    /// Get the element type of a pointer type.
+    /// 
+    /// # Panics
+    /// 
+    /// - Panics if the type is not a pointer type.
+    pub fn unwrap_pointer(&self) -> &Type {
+        if let TypeKind::Pointer(t) = self.kind() {
+            t
+        } else {
+            panic!("unwrap_pointer: not a pointer type: {}", self);
         }
     }
 

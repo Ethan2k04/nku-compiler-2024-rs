@@ -498,13 +498,13 @@ impl Inst {
     }
 
     pub fn float_binary(ctx: &mut Context, lhs: Value, rhs: Value, op_ty: FloatBinaryOp, ty: Ty) -> Self {
-        if !lhs.ty(ctx).is_float(ctx) || !rhs.ty(ctx).is_float(ctx) {
-            panic!(
-                "lhs and rhs must be float-like types, got {} and {}",
-                lhs.ty(ctx).display(ctx),
-                rhs.ty(ctx).display(ctx)
-            );
-        }
+        // if !lhs.ty(ctx).is_float(ctx) || !rhs.ty(ctx).is_float(ctx) {
+        //     panic!(
+        //         "lhs and rhs must be float-like types, got {} and {}",
+        //         lhs.ty(ctx).display(ctx),
+        //         rhs.ty(ctx).display(ctx)
+        //     );
+        // }
 
         let inst = Self::new(
             ctx,
@@ -832,6 +832,36 @@ impl fmt::Display for DisplayInst<'_> {
                     self.inst.successor(self.ctx, 0).name(self.ctx),
                     self.inst.successor(self.ctx, 1).name(self.ctx)
                 )?;
+            }
+            InstKind::GetElementPtr { bound_ty } => {
+                write!(f, "getelementptr {}, ", bound_ty.display(self.ctx))?;
+
+                if bound_ty.is_array(self.ctx) {
+                    write!(
+                        f,
+                        "{}",
+                        self.inst.operand(self.ctx, 0).display(self.ctx, true)
+                    )?;
+                } else {
+                    write!(
+                        f,
+                        "{}* {}",
+                        bound_ty.display(self.ctx),
+                        self.inst.operand(self.ctx, 0).display(self.ctx, false)
+                    )?;
+                }
+                
+                // write!(
+                //     f,
+                //     "getelementptr {}, {}",
+                //     bound_ty.display(self.ctx),
+                //     self.inst.operand(self.ctx, 0).display(self.ctx, true)
+                // )?;
+
+                // 打印所有索引操作数
+                for idx in self.inst.operand_iter(self.ctx).skip(1) {
+                    write!(f, ", {}", idx.display(self.ctx, true))?;
+                }
             }
             _ => {
                 dbg!(self.inst.kind(self.ctx));

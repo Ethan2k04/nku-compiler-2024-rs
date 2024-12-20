@@ -9,6 +9,7 @@ use super::inst::Inst;
 use super::ty::Ty;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr, Idx};
 
+#[derive(Debug)]
 pub enum ConstantValue {
     /// The undefined value.
     Undef { ty: Ty },
@@ -236,6 +237,14 @@ impl Value {
 
     pub fn f32(ctx: &mut Context, value: f32) -> Self {
         let value = ConstantValue::f32(ctx, value);
+        Self::new(ctx, ValueKind::Constant { value })
+    }
+
+    pub fn array(ctx: &mut Context, value: ConstantValue) -> Self {
+        Self::new(ctx, ValueKind::Constant { value })
+    }
+
+    pub fn zero(ctx: &mut Context, value: ConstantValue) -> Self {
         Self::new(ctx, ValueKind::Constant { value })
     }
 

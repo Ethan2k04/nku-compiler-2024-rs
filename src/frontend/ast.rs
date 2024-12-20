@@ -624,17 +624,16 @@ impl Item {
                     } else {
                         param.ty.clone()
                     };
+                    // println!("{:#?}", ty);
                     param_tys.push(ty.clone());
                     symtable.insert(param.ident.clone(), SymbolEntry::from_ty(ty));
                 }
-
-                let func_ty = Type::func(param_tys, ret_ty.clone());
+                let func_ty = Type::func(param_tys.clone(), ret_ty.clone());
 
                 // Insert the function symbol into the scope above the current scope, since we
                 // are in the parameters scope
-                symtable.insert_upper(ident.clone(), SymbolEntry::from_ty(func_ty), 1);
+                symtable.insert_upper(ident.clone(), SymbolEntry::from_ty(func_ty.clone()), 1);
                 symtable.curr_ret_ty = Some(ret_ty.clone());
-
                 // Type check the function body
                 body.type_check(symtable);
 
@@ -789,17 +788,23 @@ impl Stmt {
         match self {
             Stmt::Assign(AssignStmt { lval, exp }) => {
                 let entry = symtable.lookup(&lval.ident).expect("variable not found");
+                // println!("{:#?}", lval);
 
-                let indices = lval.indices
-                    .clone()
+                // 对索引进行类型检查
+                let checked_indices = lval.indices
                     .into_iter()
                     .map(|idx_exp| idx_exp.type_check(Some(&Type::int()), symtable))
                     .collect::<Vec<_>>();
 
-                let mut ty = &entry.ty;
+                // 创建新的经过类型检查的 lval
+                let checked_lval = LVal {
+                    ident: lval.ident,
+                    indices: checked_indices,
+                };
 
+                let mut ty = &entry.ty;
                 // e.g `a[0][1] = 1;` -> indices = [0, 1] -> ty = int[][] -> ty = int[] -> ty = int
-                for _ in indices.iter() {
+                for _ in checked_lval.indices.iter() {
                     match ty.kind() {
                         Tk::Array(inner_ty, _) => {
                             // 更新 ty 为数组的元素类型
@@ -817,7 +822,10 @@ impl Stmt {
 
                 // Type check the expression
                 let exp = exp.type_check(Some(ty), symtable);
-                Stmt::Assign(AssignStmt { lval, exp })
+                Stmt::Assign(AssignStmt { 
+                    lval: checked_lval, 
+                    exp 
+                })
             },
             Stmt::Exp(ExpStmt { exp }) => {
                 // Type check the expression
@@ -878,6 +886,7 @@ impl Exp {
     pub fn type_check(self, expect: Option<&Type>, symtable: &SymbolTable) -> Self {
         // If the expression is already known, and no expected type is
         // given, return the expression as is.
+        // println!("{:?}", self);
         if self.ty.is_some() && expect.is_none() {
             return self;
         }
@@ -1040,14 +1049,14 @@ impl Exp {
                 // Lookup the variable in the symbol table
                 let entry = symtable.lookup(&ident).unwrap();
 
-                let indices = indices
+                let checked_indices = indices
                     .into_iter()
                     .map(|idx_exp| idx_exp.type_check(Some(&Type::int()), symtable))
                     .collect::<Vec<_>>();
 
                 let mut ty = &entry.ty;
 
-                for _ in indices.iter() {
+                for _ in checked_indices.iter() {
                     match ty.kind() {
                         Tk::Array(inner_ty, _) => {
                             ty = inner_ty;
@@ -1060,11 +1069,16 @@ impl Exp {
                         }
                     }
                 }
+                // println!("{:?}", ty);
 
                 let exp = Exp {
-                    kind: ExpKind::LVal(LVal { ident, indices }),
+                    kind: ExpKind::LVal(LVal { 
+                        ident, 
+                        indices: checked_indices 
+                    }),
                     ty: Some(ty.clone()),
                 };
+                // println!("{:?}", exp);
                 exp
             },
             ExpKind::InitList(ref list) => {
