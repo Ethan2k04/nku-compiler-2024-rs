@@ -585,27 +585,29 @@ impl IrGenContext {
                         }
                     }
                 } else {
-                    // 有数组索引的情况
-                    // println!("which one is called? 3");
-                    let mut gep_indices = vec![Value::i32(&mut self.ctx, 0)]; // 第一个索引总是0
+                    // 检查这个表达式是否作为函数参数使用
+                    let is_array_param = if let Some(ty) = exp.ty.as_ref() {
+                        ty.is_pointer() || ty.is_array()
+                    } else {
+                        false
+                    };
+
+                    let mut gep_indices = vec![Value::i32(&mut self.ctx, 0)];
                     
-                    // 生成所有索引的值
+                    // 生成索引值
                     for idx_exp in indices {
                         let idx_val = self.gen_local_expr(idx_exp).unwrap();
                         gep_indices.push(idx_val);
                     }
-                    // println!("ir_base_ty: {:#?}", ir_base_ty);
-                    // println!("ir_base_ty: is_array {:#?}", ir_base_ty.is_array(&self.ctx));
-                    // println!("ir_base_ty: is_ptr {:#?}", ir_base_ty.is_ptr(&self.ctx));
 
                     let bound_ty = if base_ty.is_pointer() {
                         gep_indices.remove(0);
                         self.gen_type(base_ty.unwrap_pointer())
-                    }  else {
+                    } else {
                         self.gen_type(base_ty)
                     };
 
-                    // 使用GEP指令计算元素地址
+                    // 生成 GEP 指令计算地址
                     let elem_ptr = Inst::getelementptr(
                         &mut self.ctx,
                         bound_ty,
@@ -613,40 +615,41 @@ impl IrGenContext {
                         gep_indices
                     );
                     curr_block.push_back(&mut self.ctx, elem_ptr).unwrap();
-            
-                    // 对计算出的地址进行load操作
-                    let target_ty = match base_ty.kind() {
-                        Tk::Array(elem_ty, _) => {
-                            // 对于多维数组，需要根据索引次数来确定最终的元素类型
-                            let mut curr_ty = elem_ty;
-                            for _ in indices.iter().skip(1) {
-                                if let Tk::Array(next_ty, _) = curr_ty.kind() {
-                                    curr_ty = next_ty;
+                    let addr = elem_ptr.result(&self.ctx).unwrap();
+
+                    // 如果这是作为数组参数使用，直接返回计算出的地址
+                    if is_array_param {
+                        Some(addr)
+                    } else {
+                        // 否则加载值
+                        let target_ty = match base_ty.kind() {
+                            Tk::Array(elem_ty, _) => {
+                                let mut curr_ty = elem_ty;
+                                for _ in indices.iter().skip(1) {
+                                    if let Tk::Array(next_ty, _) = curr_ty.kind() {
+                                        curr_ty = next_ty;
+                                    }
                                 }
+                                self.gen_type(curr_ty)
                             }
-                            // println!("curr_ty: {:#?}", curr_ty);
-                            self.gen_type(curr_ty)
-                        }
-                        Tk::Pointer(elem_ty) => {
-                            let mut elem_ty = elem_ty;
-                            while let Tk::Array(ty, ..) = elem_ty.kind() {
-                                elem_ty = ty;
-                            }
-                            // println!("elem_ty: {:#?}", elem_ty);
-                            self.gen_type(elem_ty)
-                        },
-                        _ => unreachable!("base_ty must be array or pointer"),
-                    };
-                    
-                    let tmp = elem_ptr.result(&self.ctx).unwrap();
-                    // println!("target_ty: {:#?}", target_ty);
-                    let load = Inst::load(
-                        &mut self.ctx,
-                        tmp,
-                        target_ty
-                    );
-                    curr_block.push_back(&mut self.ctx, load).unwrap();
-                    Some(load.result(&self.ctx).unwrap())
+                            Tk::Pointer(elem_ty) => {
+                                let mut curr_ty = elem_ty;
+                                while let Tk::Array(ty, ..) = curr_ty.kind() {
+                                    curr_ty = ty;
+                                }
+                                self.gen_type(curr_ty)
+                            },
+                            _ => unreachable!("base_ty must be array or pointer"),
+                        };
+
+                        let load = Inst::load(
+                            &mut self.ctx,
+                            addr,
+                            target_ty
+                        );
+                        curr_block.push_back(&mut self.ctx, load).unwrap();
+                        Some(load.result(&self.ctx).unwrap())
+                    }
                 }
             }
             ExpKind::Coercion(expr) => {
@@ -779,7 +782,7 @@ impl IrGenContext {
             ("getarray", vec![ptr], i32),              // int getarray(int[])
             ("putarray", vec![i32, ptr], void),        // void putarray(int, int[])
             ("getfarray", vec![ptr], i32),             // int getfarray(float[])
-            ("putfarray", vec![i32, ptr], void),       // void putfarray(int, float[])
+            ("putfarray", vec![f32, ptr], void),       // void putfarray(int, float[])
             ("starttime", vec![i32], void),            // void _sysy_starttime(int)
             ("stoptime", vec![i32], void),             // void _sysy_stoptime(int)
         ];
