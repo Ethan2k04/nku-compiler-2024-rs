@@ -1,12 +1,14 @@
 use std::collections::{HashMap, HashSet}; 
 use crate::infra::storage::{ArenaPtr, Idx};
 use crate::infra::linked_list::{LinkedListContainer, LinkedListNode};
-use crate::ir::{Context, Block, Func, Inst};
+use crate::ir::{Context, Block, Func, FuncKind, Inst};
 
 /// A node in a control flow graph.
 pub trait CfgNode: ArenaPtr {
     /// The region type associated with the node.
     type Region: CfgRegion<Node = Self>;
+
+    type Ctx: ?Sized;
 
     /// Get the successors of the node.
     fn succs(self, ctx: &Context) -> Vec<Self>;
@@ -110,6 +112,7 @@ where
 
 impl CfgNode for Block {
     type Region = Func;
+    type Ctx = Context;
 
     fn succs(self, ctx: &Context) -> Vec<Block> {
         // 获取基本块的最后一条指令
@@ -146,7 +149,6 @@ impl CfgRegion for Func {
 }
 
 impl CfgInfo<Block, Func> {
-    // 原有的 to_dot 方法保持不变
     pub fn to_dot(&self, ctx: &Context) -> String {
         let mut dot = String::from("digraph CFG {\n");
         
@@ -180,8 +182,20 @@ impl CfgInfo<Block, Func> {
         dot
     }
 
-    // 新增方法：将多个函数的 CFG 合并到一个图中
-    pub fn combine_cfgs(cfgs: &[(Func, CfgInfo<Block, Func>)], ctx: &Context) -> String {
+
+    pub fn combine_cfgs(ctx: &Context) -> String {
+        // 收集所有函数的 CFG
+        let mut cfgs = Vec::new();
+        for func in ctx.funcs() {
+            match func.kind(&ctx) {
+                FuncKind::Define => {
+                    let cfg = CfgInfo::new(&ctx, func);
+                    cfgs.push((func, cfg));
+                }
+                _ => {}
+            }
+        }
+
         let mut dot = String::from("digraph CFG {\n");
         
         // 为每个函数创建一个子图

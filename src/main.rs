@@ -67,20 +67,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ir = irgen(&ast, 8);
 
-    // 收集所有函数的 CFG
-    let mut cfgs = Vec::new();
-    for func in ir.funcs() {
-        match func.kind(&ir) {
-            FuncKind::Define => {
-                let cfg = CfgInfo::new(&ir, func);
-                cfgs.push((func, cfg));
-            }
-            _ => {}
-        }
-    }
-
     // 生成合并的 DOT 文件
-    let combined_dot = CfgInfo::<Block, Func>::combine_cfgs(&cfgs, &ir);
+    let combined_dot = CfgInfo::<Block, Func>::combine_cfgs(&ir);
     std::fs::write("combined_cfg.dot", combined_dot)?;
 
     if let Some(ir_file) = emit_llvm_ir {

@@ -1,0 +1,12 @@
+digraph CFG {
+    "%bb_4" [shape=box,label="%bb_4:\l    ret void\l"];
+    "%bb_3" [shape=box,label="%bb_3:\l    br label %bb_1\l"];
+    "%bb_0" [shape=box,label="%bb_0:\l    br label %bb_1\l"];
+    "%bb_2" [shape=box,label="%bb_2:\l    br label %bb_3\l"];
+    "%bb_1" [shape=box,label="%bb_1:\l    br i1 true, label %bb_2, label %bb_4\l"];
+    "%bb_3" -> "%bb_1";
+    "%bb_0" -> "%bb_1";
+    "%bb_2" -> "%bb_3";
+    "%bb_1" -> "%bb_2";
+    "%bb_1" -> "%bb_4";
+}
