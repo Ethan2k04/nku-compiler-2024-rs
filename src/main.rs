@@ -73,8 +73,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     // 打印优化前的 IR
-    // println!("\nIR before optimization:");
-    // println!("{}", ctx.to_string());
+    println!("\nIR before optimization:");
+    println!("{}", ctx.to_string());
 
     // 为每个函数生成优化前的CFG图
     // for func in ctx.funcs() {
@@ -103,8 +103,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 打印优化后的 IR
-    // println!("\nIR after optimization:");
-    // println!("{}", ctx.to_string());
+    println!("\nIR after optimization:");
+    println!("{}", ctx.to_string());
 
     // // 为每个函数生成优化后的CFG图
     // for func in ctx.funcs() {

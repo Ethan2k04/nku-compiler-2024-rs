@@ -364,6 +364,16 @@ impl Inst {
         inst
     }
 
+    pub fn results(self, ctx: &Context) -> Vec<Value> {
+        self.result(ctx).into_iter().collect()
+    }
+    
+    pub fn is_used(self, ctx: &Context) -> bool {
+        self.results(ctx).iter().any(|result| 
+            result.users(ctx).into_iter().next().is_some()
+        )
+    }
+
     /// Create a new `alloca` instruction.
     pub fn alloca(ctx: &mut Context, alloca_ty: Ty) -> Self {
         let ptr = Ty::ptr(ctx);

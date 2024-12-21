@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::ir::{Context, Func, Block, FuncKind, Inst, Value};
+use crate::ir::{inst, Block, Context, Func, FuncKind, Inst, InstKind as IK, Value};
 use crate::ir::def_use::Usable;
 use crate::utils::cfg::CfgInfo;
 use crate::utils::dfs::DfsContext;
@@ -14,46 +14,71 @@ pub enum DeadCodeEliminationError {
 pub struct UnreachableCodeElimination;
 
 impl UnreachableCodeElimination {
-    /// 删除终结指令后的所有指令
     fn eliminate_dead_code_after_terminator(
         &mut self,
         ctx: &mut Context,
         func: Func,
     ) -> Result<bool, DeadCodeEliminationError> {
         let mut changed = false;
-        let mut insts_to_remove = Vec::new();
-
-        // 收集要删除的指令
+        
+        // 为每个基本块收集要删除的信息
+        let mut block_dead_code = Vec::new();
+        
+        // 第一遍：收集所有基本块中的死代码信息
         for block in func.iter(ctx) {
-            let mut has_terminator = false;
+            let mut insts_to_remove = Vec::new();
+            let mut inst_users = Vec::new();
+            let mut found_terminator = false;
+            
             for inst in block.iter(ctx) {
-                if has_terminator {
+                if found_terminator {
+                    if let Some(result) = inst.result(ctx) {
+                        let users: Vec<_> = result.users(ctx).into_iter().collect();
+                        inst_users.push((result, users));
+                    }
                     insts_to_remove.push(inst);
                 } else if inst.is_terminator(ctx) {
-                    has_terminator = true;
+                    found_terminator = true;
+                }
+            }
+            
+            if !insts_to_remove.is_empty() {
+                block_dead_code.push((insts_to_remove, inst_users));
+            }
+        }
+        
+        // 第二遍：验证所有要删除的指令的users
+        for (insts_to_remove, inst_users) in &block_dead_code {
+            for (result, users) in inst_users {
+                for user in users {
+                    if !insts_to_remove.contains(&user.inst()) {
+                        return Err(DeadCodeEliminationError::ValueStillInUse(*result));
+                    }
                 }
             }
         }
-
-        // 从后向前删除指令，以确保正确处理def-use关系
-        for inst in insts_to_remove.into_iter().rev() {
-            // 检查指令的结果是否还在使用
-            if let Some(result) = inst.result(ctx) {
-                // 将users收集到Vec中再检查
-                let users: Vec<_> = result.users(ctx).into_iter().collect();
-                if !users.is_empty() {
-                    return Err(DeadCodeEliminationError::ValueStillInUse(result));
+        
+        // 第三遍：解除引用关系并删除指令
+        // 此时不再需要不可变引用，可以安全地使用可变引用
+        for (insts_to_remove, inst_users) in block_dead_code {
+            // 先解除所有def-use关系
+            for (result, users) in inst_users {
+                for user in users {
+                    result.remove_user(ctx, user);
                 }
             }
-
-            // 删除指令
-            inst.unlink(ctx);
-            changed = true;
+            
+            // 然后删除指令
+            for inst in insts_to_remove.into_iter().rev() {
+                inst.unlink(ctx);
+                changed = true;
+            }
         }
 
         Ok(changed)
     }
 
+    
     /// 删除不可达的基本块
     fn eliminate_unreachable_blocks(&mut self, ctx: &mut Context, func: Func) -> bool {
         let mut changed = false;
@@ -104,6 +129,35 @@ impl UnreachableCodeElimination {
         changed
     }
 
+    pub fn eliminate_unused_defs(&mut self, ctx: &mut Context, func: Func) -> bool {
+        let mut changed = false;
+
+        let mut insts_to_remove = Vec::new();
+
+        for block in func.iter(ctx) {
+            for inst in block.iter(ctx) {
+                match inst.kind(ctx) {
+                    IK::Store | IK::Br | &IK::CondBr | IK::Ret => {
+                        
+                    }
+                    IK::IntBinary {..} | IK::FloatBinary {..} | IK::Alloca {..} | IK::Load | IK::GetElementPtr{..} => {
+                        if !inst.is_used(ctx) {
+                            insts_to_remove.push(inst);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        changed = !insts_to_remove.is_empty();
+        for inst in insts_to_remove {
+            inst.unlink(ctx);
+        }
+
+        changed
+    }
+
     /// 在整个函数上运行死代码删除
     pub fn eliminate_dead_code(
         &mut self,
@@ -116,6 +170,9 @@ impl UnreachableCodeElimination {
 
                 // 先删除终结指令后的代码
                 changed |= self.eliminate_dead_code_after_terminator(ctx, func)?;
+
+                // 再删除未使用的定义
+                changed |= self.eliminate_unused_defs(ctx, func);
 
                 // 再删除不可达块
                 changed |= self.eliminate_unreachable_blocks(ctx, func);
