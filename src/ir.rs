@@ -15,3 +15,4 @@ pub use global::*;
 pub use inst::*;
 pub use ty::*;
 pub use value::*;
+pub mod passes;

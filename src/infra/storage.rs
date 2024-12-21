@@ -224,7 +224,7 @@ pub enum GenericEntry<Data> {
 /// # Examples
 ///
 /// ```
-/// use nkucc::infra::storage::{GenericArena, Arena, ArenaPtr};
+/// use crate::infra::storage::{GenericArena, Arena, ArenaPtr};
 ///
 /// let mut arena = GenericArena::default();
 ///

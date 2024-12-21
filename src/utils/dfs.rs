@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::collections::HashSet;
 
 use super::cfg::{CfgNode, CfgRegion};
-use crate::infra::storage::{ArenaPtr, Idx};
+use crate::infra::storage::{ArenaPtr};
 use crate::infra::linked_list::{LinkedListContainer, LinkedListNode};
 use crate::ir::{Context, Inst};
 
@@ -180,6 +180,7 @@ mod tests {
         let loop_body = Block::new(ctx);
         let loop_tail = Block::new(ctx);
         let exit = Block::new(ctx);
+        // let unreach_block = Block::new(ctx);
 
         // 将基本块添加到函数中
         func.push_back(ctx, entry).unwrap();
@@ -187,6 +188,7 @@ mod tests {
         func.push_back(ctx, loop_body).unwrap();
         func.push_back(ctx, loop_tail).unwrap();
         func.push_back(ctx, exit).unwrap();
+        // func.push_back(ctx, unreach_block).unwrap();
 
         // 创建条件值和跳转指令
         let cond = Value::i1(ctx, true);
@@ -213,8 +215,6 @@ mod tests {
     fn test_dfs() {
         let mut ctx = Context::new(8);
         let func = create_test_cfg(&mut ctx);
-
-        // 明确指定类型参数为 Block
         let mut dfs = DfsContext::<Block>::default();
         
         // 测试先序遍历

@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(i1.display(&ctx).to_string(), "i1");
         assert_eq!(i8.display(&ctx).to_string(), "i8");
         assert_eq!(i32.display(&ctx).to_string(), "i32");
-        assert_eq!(f32.display(&ctx).to_string(), "f32");
+        assert_eq!(f32.display(&ctx).to_string(), "float");
         assert_eq!(ptr.display(&ctx).to_string(), "ptr");
         assert_eq!(arr.display(&ctx).to_string(), "[10 x i32]");
     }
