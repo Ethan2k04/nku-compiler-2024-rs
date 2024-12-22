@@ -24,7 +24,7 @@ class Colors:
 
 @dataclass
 class Config:
-    timeout: int = 600
+    timeout: int = 30
     opt_level: int = 0
     output_dir: str = "./output"
     testcase_dir: str = "./tests/testcase"

@@ -4,7 +4,7 @@ use std::fmt;
 
 use super::block::Block;
 use super::context::Context;
-use super::def_use::{Operand, Usable};
+use super::def_use::{Operand, Usable, User};
 use super::ty::Ty;
 use super::value::Value;
 use crate::infra::linked_list::LinkedListNode;
@@ -372,6 +372,23 @@ impl Inst {
         self.results(ctx).iter().any(|result| 
             result.users(ctx).into_iter().next().is_some()
         )
+    }
+
+    pub fn replace_operand(self, ctx: &mut Context, old_val: Value, new_val: Value) {
+        // 获取旧操作数在指令中的索引位置
+        let idx_to_replace = self.deref(ctx).operands.iter()
+            .position(|op| op.used() == old_val)
+            .expect("old value not found in operands");
+        
+        // 移除旧操作数的 def-use 关系
+        old_val.remove_user(ctx, User::new(self, idx_to_replace));
+        
+        // 移除旧操作数
+        self.deref_mut(ctx).operands.remove(idx_to_replace);
+        
+        // 创建并插入新操作数
+        let operand = Operand::new(ctx, new_val, self, idx_to_replace);
+        self.deref_mut(ctx).operands.insert(operand);
     }
 
     /// Create a new `alloca` instruction.

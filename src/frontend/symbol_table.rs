@@ -94,7 +94,7 @@ impl SymbolTable {
         self.insert("getch", SymbolEntry::from_ty(Type::func(vec![], Type::int())));
         self.insert("getfloat", SymbolEntry::from_ty(Type::func(vec![], Type::float())));
         self.insert("getarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::int())], Type::int())));
-        self.insert("getfarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::float())], Type::float())));
+        self.insert("getfarray", SymbolEntry::from_ty(Type::func(vec![Type::pointer(Type::float())], Type::int())));
         self.insert("putint", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
         self.insert("putch", SymbolEntry::from_ty(Type::func(vec![Type::int()], Type::void())));
         self.insert("putfloat", SymbolEntry::from_ty(Type::func(vec![Type::float()], Type::void())));

@@ -1,5 +1,6 @@
+// reference: https://github.com/JuniMay/orzcc/blob/master/src/utils/cfg.rs
 use std::collections::{HashMap, HashSet}; 
-use crate::infra::storage::{ArenaPtr, Idx};
+use crate::infra::storage::{ArenaPtr};
 use crate::infra::linked_list::{LinkedListContainer, LinkedListNode};
 use crate::ir::{Context, Block, Func, FuncKind, Inst};
 

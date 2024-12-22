@@ -184,7 +184,7 @@ impl UnreachableCodeElimination {
     }
 
     /// 在整个模块上运行死代码删除
-    pub fn run_on_module(&mut self, ctx: &mut Context) -> Result<bool, DeadCodeEliminationError> {
+    pub fn run(&mut self, ctx: &mut Context) -> Result<bool, DeadCodeEliminationError> {
         let mut changed = false;
         
         // 收集所有函数
