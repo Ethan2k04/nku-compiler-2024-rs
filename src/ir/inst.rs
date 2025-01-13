@@ -12,7 +12,7 @@ use crate::infra::storage::{Arena, ArenaPtr, GenericPtr};
 use crate::ir::TyData;
 // TODO: Add support for float and array types. A LOT OF WORK to do here. >_<
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum IntCmpCond {
     Eq,
     Ne,
@@ -58,7 +58,7 @@ impl fmt::Display for FloatCmpCond {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum IntBinaryOp {
     Add,
     Sub,
