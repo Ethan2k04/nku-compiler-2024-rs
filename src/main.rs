@@ -101,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::fs::write(ir_file, ctx.to_string()).unwrap();
     }
 
-
+    // Initialize the codegen context.
     let mut codegen_ctx = CodegenContext::new(&ctx);
 
     // Set architecture string.
@@ -121,7 +121,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Emit the final assembly.
     let mctx = codegen_ctx.finish();
     println!("{}", mctx.display());
-
 
     Ok(())
 }
