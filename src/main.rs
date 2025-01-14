@@ -66,17 +66,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut ast = SysYParser::new().parse(&src).unwrap();
 
-    // println!("{:#?}", ast);
-
     ast.type_check();
 
     println!("{:#?}", ast);
 
     let mut ctx = irgen(&ast, 8);
-
-    // 打印优化前的 IR
-    println!("\nIR before optimization:");
-    println!("{}", ctx.to_string());
 
     // 运行 mem2reg 优化
     let mut mem2reg = SimpleMem2Reg;
@@ -102,10 +96,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("\nDCE failed with error: {:?}", e);
         }
     }
-
-    // 打印优化后的 IR
-    println!("\nIR after all optimizations:");
-    println!("{}", ctx.to_string());
 
     if let Some(ir_file) = emit_llvm_ir {
         std::fs::write(ir_file, ctx.to_string()).unwrap();
