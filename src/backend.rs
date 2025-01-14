@@ -6,4 +6,3 @@ pub mod imm;
 pub mod inst;
 pub mod operand;
 pub mod regs;
-pub mod regs;
