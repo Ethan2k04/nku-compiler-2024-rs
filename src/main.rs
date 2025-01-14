@@ -11,6 +11,7 @@ use compiler_in_rust::utils::dominance::Dominance;
 use compiler_in_rust::infra::linked_list::{LinkedListContainer, LinkedListNode};
 use compiler_in_rust::ir::passes::dce;
 use compiler_in_rust::ir::passes::mem2reg::SimpleMem2Reg;
+use compiler_in_rust::backend::codegen::CodegenContext;
 
 fn parse_arguments() -> ArgMatches {
     Command::new("nkucc")
@@ -65,20 +66,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut ast = SysYParser::new().parse(&src).unwrap();
 
-    // println!("{:#?}", ast);
-
     ast.type_check();
 
     println!("{:#?}", ast);
 
     let mut ctx = irgen(&ast, 8);
-
-
-    let mut ctx = irgen(&ast, 8);
-
-    // 打印优化前的 IR
-    println!("\nIR before optimization:");
-    println!("{}", ctx.to_string());
 
     // 运行 mem2reg 优化
     let mut mem2reg = SimpleMem2Reg;
@@ -105,13 +97,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // 打印优化后的 IR
-    println!("\nIR after all optimizations:");
-    println!("{}", ctx.to_string());
-
     if let Some(ir_file) = emit_llvm_ir {
         std::fs::write(ir_file, ctx.to_string()).unwrap();
     }
+
+
+    let mut codegen_ctx = CodegenContext::new(&ctx);
+
+    // Set architecture string.
+    codegen_ctx.mctx_mut().set_arch("rv64imafdc_zba_zbb");
+
+    // Do the codegen and emit virtual register assembly.
+    codegen_ctx.codegen();
+    println!("{}", codegen_ctx.mctx().display());
+
+    // Do the register allocation.
+    codegen_ctx.regalloc();
+    println!("{}", codegen_ctx.mctx().display());
+
+    // Additional work after register allocation.
+    codegen_ctx.after_regalloc();
+
+    // Emit the final assembly.
+    let mctx = codegen_ctx.finish();
+    println!("{}", mctx.display());
+
 
     Ok(())
 }
