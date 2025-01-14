@@ -1,3 +1,4 @@
+@__GLOBAL_VAR_a = global i32 5
 declare i32 @getint()
 declare void @putint(i32 %v0)
 declare i32 @getch()
@@ -14,10 +15,16 @@ declare void @memset(ptr %v11, i32 %v12, i32 %v13)
 declare void @memcpy(ptr %v14, ptr %v15, i32 %v16)
 define i32 @main() {
 bb_0:
+	%v20 = alloca i32
+	%v18 = alloca i32
 	%v17 = alloca i32
-	store i32 0, ptr %v17
+	store i32 undef, ptr %v18
+	store i32 0, ptr %v20
+	store i32 1, ptr %v20
+	%v23 = load i32, ptr %v20
+	store i32 %v23, ptr %v17
 	br label %bb_1
 bb_1:
-	%v21 = load i32, ptr %v17
-	ret i32 %v21
+	%v24 = load i32, ptr %v17
+	ret i32 %v24
 }

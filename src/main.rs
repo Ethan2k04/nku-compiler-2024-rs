@@ -72,30 +72,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut ctx = irgen(&ast, 8);
 
-    // 运行 mem2reg 优化
-    let mut mem2reg = SimpleMem2Reg;
-    let changed = mem2reg.run(&mut ctx);
-    if changed {
-        println!("\nMem2Reg made changes to the IR");
-    } else {
-        println!("\nMem2Reg made no changes"); 
-    }
+    // // 运行 mem2reg 优化
+    // let mut mem2reg = SimpleMem2Reg;
+    // let changed = mem2reg.run(&mut ctx);
+    // if changed {
+    //     println!("\nMem2Reg made changes to the IR");
+    // } else {
+    //     println!("\nMem2Reg made no changes"); 
+    // }
 
-    // 运行死代码删除
-    let mut dce = dce::UnreachableCodeElimination;
-    let changed = dce.run(&mut ctx);
-    match changed {
-        Ok(changed) => {
-            if changed {
-                println!("\nDCE made changes to the IR");
-            } else {
-                println!("\nDCE made no changes");
-            }
-        }
-        Err(e) => {
-            println!("\nDCE failed with error: {:?}", e);
-        }
-    }
+    // // 运行死代码删除
+    // let mut dce = dce::UnreachableCodeElimination;
+    // let changed = dce.run(&mut ctx);
+    // match changed {
+    //     Ok(changed) => {
+    //         if changed {
+    //             println!("\nDCE made changes to the IR");
+    //         } else {
+    //             println!("\nDCE made no changes");
+    //         }
+    //     }
+    //     Err(e) => {
+    //         println!("\nDCE failed with error: {:?}", e);
+    //     }
+    // }
 
     if let Some(ir_file) = emit_llvm_ir {
         std::fs::write(ir_file, ctx.to_string()).unwrap();
@@ -116,11 +116,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", codegen_ctx.mctx().display());
 
     // Additional work after register allocation.
-    codegen_ctx.after_regalloc();
+    // codegen_ctx.after_regalloc();
 
     // Emit the final assembly.
     let mctx = codegen_ctx.finish();
-    println!("{}", mctx.display());
+    // println!("{}", mctx.display());
+
+    // Write the generated assembly to the output file.
+    let assembly_output = mctx.display().to_string();
+    std::fs::write(output.unwrap(), assembly_output)?;
 
     Ok(())
 }

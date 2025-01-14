@@ -14,6 +14,7 @@ use super::regs::{self, Reg};
 use crate::infra::linked_list::{LinkedListContainer, LinkedListNode};
 use crate::infra::storage::ArenaPtr;
 use crate::ir::{self, ConstantValue, IntBinaryOp, Ty, Value};
+use crate::backend::context::RawData;
 
 pub struct CodegenContext<'s> {
     /// The machine code context.
@@ -91,6 +92,27 @@ impl<'s> CodegenContext<'s> {
         // TODO: There are several things to be handled before translating instructions:
         //  1. External functions and corresponding signatures.
         //  2. Global variables/constants.
+        for global_data in self.ctx.globals.iter() {
+            let global_name = &global_data.name;  // 获取全局变量的名字
+            let global_label = MLabel::from(global_name);  // 创建全局变量标签
+
+            // 处理 global_data.value，根据不同类型转换成 Vec<u8>
+            let raw = match &global_data.value {
+                ConstantValue::Int32 { value, .. } => {
+                    // 假设是 32 位整型，转换成字节数组
+                    vec![(value >> 24) as u8, (value >> 16) as u8, (value >> 8) as u8, *value as u8]
+                }
+                ConstantValue::Undef { .. } => {
+                    // 处理未定义的常量，可以根据需求返回一个默认的字节数组
+                    vec![]
+                }
+                // 其他变体的处理方式
+                _ => todo!("handle other variant"),
+            };
+
+            // 将转换后的字节数组添加到 mctx 中
+            self.mctx.add_raw_data(global_label, RawData::Bytes(raw));
+        }
 
         // XXX: This is just a demonstration, you may refactor this part entirely.
         for func in self.ctx.funcs() {
@@ -381,7 +403,7 @@ impl<'s> CodegenContext<'s> {
     }
 
     /// Generate a load instruction and append it to the current block.
-    /// /// Here we just demonstrate the idea. Bugs may exist. You can
+    /// Here we just demonstrate the idea. Bugs may exist. You can
     /// refactor this entirely as your own way.
     pub fn gen_load(&mut self, ty: Ty, mem_loc: MemLoc) -> MOperand {
         let curr_block = self.curr_block.unwrap();
