@@ -91,27 +91,33 @@ impl<'s> CodegenContext<'s> {
 
         // TODO: There are several things to be handled before translating instructions:
         //  1. External functions and corresponding signatures.
+
         //  2. Global variables/constants.
         for global_data in self.ctx.globals.iter() {
             let global_name = &global_data.name;  // 获取全局变量的名字
             let global_label = MLabel::from(global_name);  // 创建全局变量标签
 
-            // 处理 global_data.value，根据不同类型转换成 Vec<u8>
-            let raw = match &global_data.value {
+            // 处理 global_data.value，根据不同类型选择 RawData::Bytes 或 RawData::Bss
+            match &global_data.value {
                 ConstantValue::Int32 { value, .. } => {
                     // 假设是 32 位整型，转换成字节数组
-                    vec![(value >> 24) as u8, (value >> 16) as u8, (value >> 8) as u8, *value as u8]
+                    let raw = vec![
+                        (value >> 24) as u8,
+                        (value >> 16) as u8,
+                        (value >> 8) as u8,
+                        *value as u8,
+                    ];
+                    // 使用字节数组处理已初始化的常量
+                    self.mctx.add_raw_data(global_label.clone(), RawData::Bytes(raw));
                 }
-                ConstantValue::Undef { .. } => {
-                    // 处理未定义的常量，可以根据需求返回一个默认的字节数组
-                    vec![]
+                ConstantValue::AggregateZero { .. } => {
+                    // 对于未初始化的全局变量，使用 RawData::Bss 代替
+                    let size = 0; // 假设未初始化的全局变量的大小是 0
+                    self.mctx.add_raw_data(global_label.clone(), RawData::Bss(size));
                 }
                 // 其他变体的处理方式
                 _ => todo!("handle other variant"),
-            };
-
-            // 将转换后的字节数组添加到 mctx 中
-            self.mctx.add_raw_data(global_label, RawData::Bytes(raw));
+            }
         }
 
         // XXX: This is just a demonstration, you may refactor this part entirely.

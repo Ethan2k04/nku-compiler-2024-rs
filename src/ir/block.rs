@@ -52,7 +52,7 @@ impl Block {
     pub fn name(self, _ctx: &Context) -> String {
         // We use the arena index directly as the block number. This is not a good way
         // to number blocks in a real compiler, but only for debugging purposes.
-        format!("%bb_{}", self.0.index())
+        format!("bb_{}", self.0.index())
     }
 
     pub fn display(self, ctx: &Context) -> DisplayBlock { DisplayBlock { ctx, block: self } }

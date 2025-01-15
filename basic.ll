@@ -1,4 +1,4 @@
-@__GLOBAL_VAR_a = global i32 5
+@__GLOBAL_VAR_a = global i32 zeroinitializer
 declare i32 @getint()
 declare void @putint(i32 %v0)
 declare i32 @getch()
@@ -23,7 +23,7 @@ bb_0:
 	store i32 1, ptr %v20
 	%v23 = load i32, ptr %v20
 	store i32 %v23, ptr %v17
-	br label %bb_1
+	br label bb_1
 bb_1:
 	%v24 = load i32, ptr %v17
 	ret i32 %v24

@@ -371,7 +371,7 @@ impl fmt::Display for DisplayMInst<'_> {
                         format!("{}({})", offset, base)
                     }
                     MemLoc::Slot { offset } => {
-                        format!("{}(??? SLOT)", offset)
+                        format!("{}(sp)", offset)
                     }
                     MemLoc::Incoming { offset } => {
                         format!("{}(??? INCOMING)", offset)
@@ -385,7 +385,7 @@ impl fmt::Display for DisplayMInst<'_> {
                         format!("{}({})", offset, base)
                     }
                     MemLoc::Slot { offset } => {
-                        format!("{}(??? SLOT)", offset)
+                        format!("{}(sp)", offset)
                     }
                     MemLoc::Incoming { offset } => {
                         format!("{}(??? INCOMING)", offset)

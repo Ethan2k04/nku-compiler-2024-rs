@@ -74,26 +74,23 @@ memcpy:
 	.align 1
 	.type main, @function
 main:
-.%bb_0:
-	sw zero, -8(??? SLOT)
-	sw zero, -4(??? SLOT)
+.bb_0:
+	sw zero, -8(sp)
+	sw zero, -4(sp)
 	li t6, 1
-	sw t6, -4(??? SLOT)
-	lw t5, -4(??? SLOT)
-	sw t5, -12(??? SLOT)
-	j .%bb_1
-.%bb_1:
-	lw t4, -12(??? SLOT)
+	sw t6, -4(sp)
+	lw t5, -4(sp)
+	sw t5, -12(sp)
+	j .bb_1
+.bb_1:
+	lw t4, -12(sp)
 	addi a0, t4, 0
 
 	.type __GLOBAL_VAR_a, @object
-	.data
+	.bss
 	.global __GLOBAL_VAR_a
 	.align 2
 __GLOBAL_VAR_a:
-	.byte 0
-	.byte 0
-	.byte 0
-	.byte 5
+	.zero 0
 
 
