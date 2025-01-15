@@ -15,6 +15,7 @@ use crate::infra::linked_list::{LinkedListContainer, LinkedListNode};
 use crate::infra::storage::ArenaPtr;
 use crate::ir::{self, ConstantValue, IntBinaryOp, Ty, Value};
 use crate::backend::context::RawData;
+use crate::ir::FuncKind;
 
 pub struct CodegenContext<'s> {
     /// The machine code context.
@@ -74,23 +75,31 @@ impl<'s> CodegenContext<'s> {
 
     /// Do the code generation.
     pub fn codegen(&mut self) {
+        // TODO: There are several things to be handled before translating instructions:
+        //  1. External functions and corresponding signatures.
         // Generate plcaceholders for all the functions and blocks.
         for func in self.ctx.funcs() {
             let name = func.name(self.ctx);
             let label = MLabel::from(name);
 
             let mfunc = MFunc::new(&mut self.mctx, label);
-            self.funcs.insert(name.to_string(), mfunc);
 
-            for block in func.iter(self.ctx) {
-                let mblock = MBlock::new(&mut self.mctx, format!(".{}", block.name(self.ctx)));
-                let _ = mfunc.push_back(&mut self.mctx, mblock);
-                self.blocks.insert(block, mblock);
+            match func.kind(&mut self.ctx) {
+                FuncKind::Declare => {
+                    mfunc.set_externel(&mut self.mctx);
+                    self.funcs.insert(name.to_string(), mfunc);
+                }
+                FuncKind::Define => {
+                    self.funcs.insert(name.to_string(), mfunc);
+    
+                    for block in func.iter(self.ctx) {
+                        let mblock = MBlock::new(&mut self.mctx, format!(".{}", block.name(self.ctx)));
+                        let _ = mfunc.push_back(&mut self.mctx, mblock);
+                        self.blocks.insert(block, mblock);
+                    }
+                }
             }
         }
-
-        // TODO: There are several things to be handled before translating instructions:
-        //  1. External functions and corresponding signatures.
 
         //  2. Global variables/constants.
         for global_data in self.ctx.globals.iter() {

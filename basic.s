@@ -1,74 +1,46 @@
 	.attribute arch, "rv64imafdc_zba_zbb"
 	.text
+	.extern getint
 	.global getint
-	.align 1
-	.type getint, @function
-getint:
 
+	.extern putint
 	.global putint
-	.align 1
-	.type putint, @function
-putint:
 
+	.extern getch
 	.global getch
-	.align 1
-	.type getch, @function
-getch:
 
+	.extern putch
 	.global putch
-	.align 1
-	.type putch, @function
-putch:
 
+	.extern getfloat
 	.global getfloat
-	.align 1
-	.type getfloat, @function
-getfloat:
 
+	.extern putfloat
 	.global putfloat
-	.align 1
-	.type putfloat, @function
-putfloat:
 
+	.extern getarray
 	.global getarray
-	.align 1
-	.type getarray, @function
-getarray:
 
+	.extern putarray
 	.global putarray
-	.align 1
-	.type putarray, @function
-putarray:
 
+	.extern getfarray
 	.global getfarray
-	.align 1
-	.type getfarray, @function
-getfarray:
 
+	.extern putfarray
 	.global putfarray
-	.align 1
-	.type putfarray, @function
-putfarray:
 
+	.extern starttime
 	.global starttime
-	.align 1
-	.type starttime, @function
-starttime:
 
+	.extern stoptime
 	.global stoptime
-	.align 1
-	.type stoptime, @function
-stoptime:
 
+	.extern memset
 	.global memset
-	.align 1
-	.type memset, @function
-memset:
 
+	.extern memcpy
 	.global memcpy
-	.align 1
-	.type memcpy, @function
-memcpy:
 
 	.global main
 	.align 1

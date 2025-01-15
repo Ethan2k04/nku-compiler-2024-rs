@@ -82,6 +82,8 @@ impl fmt::Display for DisplayMContext<'_> {
 
             // Skip the external functions.
             if func.is_external(self.mctx) {
+                writeln!(f, "\t.extern {}", func.label(self.mctx))?;
+                writeln!(f, "\t.global {}\n", func.label(self.mctx))?;
                 continue;
             }
 

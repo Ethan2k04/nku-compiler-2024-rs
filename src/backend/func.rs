@@ -102,6 +102,8 @@ impl MFunc {
     /// Check if the function is an external function (library function).
     pub fn is_external(self, mctx: &MContext) -> bool { self.deref(mctx).is_external }
 
+    pub fn set_externel(self, mctx: &mut MContext) { self.deref_mut(mctx).is_external = true; }
+
     /// Add the function's storage stack size by `size`.
     pub fn add_storage_stack_size(self, mctx: &mut MContext, size: u64) {
         self.deref_mut(mctx).storage_stack_size += size;
