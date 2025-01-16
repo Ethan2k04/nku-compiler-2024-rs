@@ -2,6 +2,7 @@
 //!
 //! The assembly code is generated here.
 
+use std::any::Any;
 use std::collections::HashMap;
 
 use super::block::MBlock;
@@ -11,11 +12,13 @@ use super::imm::Imm12;
 use super::inst::{AluOpRRI, AluOpRRR, LoadOp, MInst, MInstKind, StoreOp};
 use super::operand::{MOperand, MOperandKind, MemLoc};
 use super::regs::{self, Reg};
+use crate::backend::regs::{PReg, RegKind};
 use crate::infra::linked_list::{LinkedListContainer, LinkedListNode};
 use crate::infra::storage::ArenaPtr;
 use crate::ir::{self, ConstantValue, IntBinaryOp, Ty, Value};
 use crate::backend::context::RawData;
 use crate::ir::FuncKind;
+use crate::ir::TyData;
 
 pub struct CodegenContext<'s> {
     /// The machine code context.
@@ -75,23 +78,21 @@ impl<'s> CodegenContext<'s> {
 
     /// Do the code generation.
     pub fn codegen(&mut self) {
-        // TODO: There are several things to be handled before translating instructions:
-        //  1. External functions and corresponding signatures.
+        // TODO✔: There are several things to be handled before translating instructions:
         // Generate plcaceholders for all the functions and blocks.
         for func in self.ctx.funcs() {
             let name = func.name(self.ctx);
             let label = MLabel::from(name);
-
             let mfunc = MFunc::new(&mut self.mctx, label);
 
             match func.kind(&mut self.ctx) {
                 FuncKind::Declare => {
+                    //  1. External functions and corresponding signatures.
                     mfunc.set_externel(&mut self.mctx);
                     self.funcs.insert(name.to_string(), mfunc);
                 }
                 FuncKind::Define => {
                     self.funcs.insert(name.to_string(), mfunc);
-    
                     for block in func.iter(self.ctx) {
                         let mblock = MBlock::new(&mut self.mctx, format!(".{}", block.name(self.ctx)));
                         let _ = mfunc.push_back(&mut self.mctx, mblock);
@@ -119,9 +120,20 @@ impl<'s> CodegenContext<'s> {
                     // 使用字节数组处理已初始化的常量
                     self.mctx.add_raw_data(global_label.clone(), RawData::Bytes(raw));
                 }
-                ConstantValue::AggregateZero { .. } => {
+                ConstantValue::AggregateZero { ty } => {
                     // 对于未初始化的全局变量，使用 RawData::Bss 代替
-                    let size = 0; // 假设未初始化的全局变量的大小是 0
+                    let size = match ty.try_deref(&self.ctx).unwrap() {
+                        TyData::Int1 => 1,
+                        TyData::Int8 => 2,
+                        TyData::Int32 => 4,
+                        TyData::Float32 => 4,
+                        TyData::Ptr => 4,
+                        TyData::Array { elem, len } => {
+                            // 对于数组类型，递归计算每个元素的大小
+                            elem.bitwidth(&self.ctx) * len / 8
+                        }
+                        TyData::Void => 0,
+                    };
                     self.mctx.add_raw_data(global_label.clone(), RawData::Bss(size));
                 }
                 // 其他变体的处理方式
@@ -135,7 +147,6 @@ impl<'s> CodegenContext<'s> {
             let mfunc = self.curr_func.unwrap();
 
             // TODO: Incoming parameters can be handled here.
-
             // XXX: You can use dominance/cfg to generate better assembly.
 
             // Translate the instructions.
@@ -284,6 +295,7 @@ impl<'s> CodegenContext<'s> {
                                                    * register allocator in your work. But if you
                                                    * really want to use, you may need to handle
                                                    * other instructions. */
+                        MInstKind::Jr { rd } => {}
                     }
                 }
             }
@@ -327,6 +339,7 @@ impl<'s> CodegenContext<'s> {
                                                    * register allocator in your work. But if you
                                                    * really want to use, you may need to handle
                                                    * other instructions. */
+                        MInstKind::Jr { rd } => {}
                     }
                     curr_inst = inst.next(&self.mctx);
                 }
@@ -346,7 +359,13 @@ impl<'s> CodegenContext<'s> {
         //
         // Depending on your implementation, you may need to adjust stack slots
         // offsets after these two stages.
-        todo!("after register allocation");
+        let jr = MInst::jr(
+            &mut self.mctx,
+            Reg::P(PReg::new(1, RegKind::General)),
+        );
+        let _ = self.curr_block.unwrap().push_back(&mut self.mctx, jr);
+        // todo!("after register allocation");
+
     }
 
     /// Emit the assembly code.

@@ -57,12 +57,13 @@ main:
 .bb_1:
 	lw t4, -12(sp)
 	addi a0, t4, 0
+	jr ra
 
 	.type __GLOBAL_VAR_a, @object
 	.bss
 	.global __GLOBAL_VAR_a
 	.align 2
 __GLOBAL_VAR_a:
-	.zero 0
+	.zero 4
 
 

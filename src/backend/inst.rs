@@ -48,6 +48,7 @@ pub enum MInstKind {
     /// Jump instructions.
     J { target: MBlock },
     // TODO: add more instructions as you need.
+    Jr { rd: Reg },
 }
 
 #[derive(Copy, Clone)]
@@ -359,6 +360,21 @@ impl MInst {
     }
 
     // TODO: add more instruction creation methods as you need.
+    /// Creatr a new `jump register` instruction.
+    ///
+    /// target: The address in target register.
+    ///
+    /// Returns the instruction.
+    pub fn jr(mctx: &mut MContext, rd: Reg) -> Self {
+        let kind = MInstKind::Jr { rd };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
 }
 
 impl fmt::Display for DisplayMInst<'_> {
@@ -397,6 +413,7 @@ impl fmt::Display for DisplayMInst<'_> {
             MInstKind::AluRRI { op, rd, rs, imm } => write!(f, "{} {}, {}, {}", op, rd, rs, imm),
             MInstKind::J { target } => write!(f, "j {}", target.label(self.mctx)),
             // TODO: implement display for more machine instructions
+            MInstKind::Jr { rd } => write!(f, "jr {}", rd),
         }
     }
 }

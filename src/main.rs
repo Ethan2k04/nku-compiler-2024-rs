@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", codegen_ctx.mctx().display());
 
     // Additional work after register allocation.
-    // codegen_ctx.after_regalloc();
+    codegen_ctx.after_regalloc();
 
     // Emit the final assembly.
     let mctx = codegen_ctx.finish();
