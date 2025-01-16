@@ -210,6 +210,7 @@ impl<'s> CodegenContext<'s> {
                             }
                             // The `ret` should be generated in function
                             // epilogue, after register allocation.
+                            // HACK: Why don't we use "jr ra" instead?
                         }
                         &ir::InstKind::Br => {
                             // You can also encapsulate this into a helper function for cleaner
@@ -350,7 +351,7 @@ impl<'s> CodegenContext<'s> {
 
     /// Do the code generation after register allocation.
     pub fn after_regalloc(&mut self) {
-        // TODO: The stack frame is determined after register allocation, so
+        // TODO✔: The stack frame is determined after register allocation, so
         // we need to add instructions to adjust the stack frame.
         //
         // There should be two stages:
@@ -359,13 +360,76 @@ impl<'s> CodegenContext<'s> {
         //
         // Depending on your implementation, you may need to adjust stack slots
         // offsets after these two stages.
-        let jr = MInst::jr(
-            &mut self.mctx,
-            Reg::P(PReg::new(1, RegKind::General)),
-        );
-        let _ = self.curr_block.unwrap().push_back(&mut self.mctx, jr);
-        // todo!("after register allocation");
 
+        // 获取当前函数和基本块
+        for func in self.ctx.funcs(){
+            self.curr_func = Some(self.funcs[func.name(self.ctx)]);
+            let mfunc = self.curr_func.unwrap();
+
+            if mfunc.is_external(&self.mctx){
+                continue;
+            }
+        
+            // 假设需要保存寄存器ra和fp
+             // TODO: Assuming that we need fixed 32 byte for stak frame (should be flexible instead)
+            let adjust_stack_size = 32;
+
+            // 1. 添加栈帧调整代码到函数的开头（前言阶段）
+            let mut curr_block = mfunc.head(&self.mctx);
+            if let Some(prologue_block) = curr_block {
+                // 保存ra和fp到栈
+                let store_ra = MInst::store(
+                    &mut self.mctx,
+                    StoreOp::Sw,
+                    Reg::P(PReg::new(1, RegKind::General)), // ra
+                    MemLoc::Slot { offset: -adjust_stack_size as i64 }
+                );
+                prologue_block.push_front(&mut self.mctx, store_ra).unwrap();
+
+                let store_fp = MInst::store(
+                    &mut self.mctx,
+                    StoreOp::Sw,
+                    Reg::P(PReg::new(2, RegKind::General)), // fp
+                    MemLoc::Slot { offset: -(adjust_stack_size as i64 - 4) }
+                );
+                prologue_block.push_front(&mut self.mctx, store_fp).unwrap();
+
+                // 更新栈指针sp
+                let adjust_sp = MInst::raw_alu_rri(
+                    &mut self.mctx,
+                    AluOpRRI::Addi,
+                    Reg::P(PReg::new(2, RegKind::General)), // fp
+                    Reg::P(PReg::new(2, RegKind::General)), // fp
+                    Imm12::try_from_i64(-adjust_stack_size).unwrap()
+                );
+                prologue_block.push_front(&mut self.mctx, adjust_sp).unwrap();
+            }
+
+            // 2. 添加栈帧恢复代码到函数的结尾（结语阶段）
+            curr_block = mfunc.tail(&self.mctx);
+            
+            // TODO: Restore resigter fp and ra
+            // ytj: who can help me, I don't now how to impl this :(
+
+            // 恢复栈指针
+            let restore_sp = MInst::raw_alu_rri(
+                &mut self.mctx,
+                AluOpRRI::Addi,
+                Reg::P(PReg::new(2, RegKind::General)), // fp
+                Reg::P(PReg::new(2, RegKind::General)), // fp
+                Imm12::try_from_i64(adjust_stack_size).unwrap()
+            );
+            curr_block.unwrap().push_back(&mut self.mctx, restore_sp).unwrap();
+
+            // 3.返回函数调用地址
+            let jr = MInst::jr(
+                &mut self.mctx,
+                Reg::P(PReg::new(1, RegKind::General)),
+            );
+            if !curr_block.is_none(){
+                let _ = curr_block.unwrap().push_back(&mut self.mctx, jr);
+            }
+        }
     }
 
     /// Emit the assembly code.
@@ -414,9 +478,36 @@ impl<'s> CodegenContext<'s> {
                     _ => todo!(),
                 }
             }
-            ir::ValueKind::Param { .. } => {
-                // TODO: Handle parameters.
-                todo!()
+            ir::ValueKind::Param { func, ty, index } => {
+                // TODO✔: Handle parameters.
+                // 假设前 4 个参数使用寄存器，超过的参数在栈中
+                let operand = if *index < 4 {
+                    // 使用 a0, a1, a2, a3 寄存器
+                    let reg = match index {
+                        0 => regs::a0(),
+                        1 => regs::a1(),
+                        2 => regs::a2(),
+                        3 => regs::a3(),
+                        _ => unreachable!(),
+                    };
+                    MOperand {
+                        ty: *ty,
+                        kind: MOperandKind::Reg(reg.into()),
+                    }
+                } else {
+                    // 超出寄存器的参数存放在栈中
+                    let offset = (index - 4) as i64 * 8; // 每个参数按8字节对齐
+                    MOperand {
+                        ty: *ty,
+                        kind: MOperandKind::Mem(MemLoc::Slot { offset }),
+                    }
+                };
+
+                // 返回操作数
+                match operand.kind {
+                    MOperandKind::Reg(reg) => reg,
+                    _ => todo!(),
+                }
             }
         };
 

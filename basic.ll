@@ -13,18 +13,29 @@ declare void @starttime(i32 %v9)
 declare void @stoptime(i32 %v10)
 declare void @memset(ptr %v11, i32 %v12, i32 %v13)
 declare void @memcpy(ptr %v14, ptr %v15, i32 %v16)
-define i32 @main() {
+define i32 @foo(i32 %v17) {
 bb_0:
-	%v20 = alloca i32
+	%v19 = alloca i32
 	%v18 = alloca i32
-	%v17 = alloca i32
-	store i32 undef, ptr %v18
-	store i32 0, ptr %v20
-	store i32 1, ptr %v20
-	%v23 = load i32, ptr %v20
-	store i32 %v23, ptr %v17
+	store i32 %v17, ptr %v18
+	store i32 0, ptr %v19
 	br label bb_1
 bb_1:
-	%v24 = load i32, ptr %v17
-	ret i32 %v24
+	%v21 = load i32, ptr %v19
+	ret i32 %v21
+}
+define i32 @main() {
+bb_2:
+	%v25 = alloca i32
+	%v23 = alloca i32
+	%v22 = alloca i32
+	store i32 undef, ptr %v23
+	store i32 0, ptr %v25
+	store i32 1, ptr %v25
+	%v28 = load i32, ptr %v25
+	store i32 %v28, ptr %v22
+	br label bb_3
+bb_3:
+	%v29 = load i32, ptr %v22
+	ret i32 %v29
 }
