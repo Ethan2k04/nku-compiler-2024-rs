@@ -75,34 +75,8 @@ impl fmt::Display for DisplayMContext<'_> {
         // The architecture attribute.
         writeln!(f, "\t.attribute arch, \"{}\"", self.mctx.arch())?;
 
-        // The text section, generating the code.
-        writeln!(f, "\t.text")?;
-        for func_data in self.mctx.funcs.iter() {
-            let func = func_data.self_ptr();
-
-            // Skip the external functions.
-            if func.is_external(self.mctx) {
-                writeln!(f, "\t.extern {}", func.label(self.mctx))?;
-                writeln!(f, "\t.global {}\n", func.label(self.mctx))?;
-                continue;
-            }
-
-            writeln!(f, "\t.global {}", func.label(self.mctx))?;
-            writeln!(f, "\t.align 1")?;
-            writeln!(f, "\t.type {}, @function", func.label(self.mctx))?;
-            writeln!(f, "{}:", func.label(self.mctx))?;
-
-            for block in func.iter(self.mctx) {
-                writeln!(f, "{}:", block.label(self.mctx))?;
-                for inst in block.iter(self.mctx) {
-                    writeln!(f, "\t{}", inst.display(self.mctx))?;
-                }
-            }
-
-            writeln!(f)?;
-        }
-
         // The data section, generating the data.
+        writeln!(f, "\t.section .data")?;
         for (label, raw_data) in self.mctx.raw_data.iter() {
             writeln!(f, "\t.type {}, @object", label)?;
             match raw_data {
@@ -125,6 +99,32 @@ impl fmt::Display for DisplayMContext<'_> {
                     writeln!(f)?;
                 }
             }
+            writeln!(f)?;
+        }
+
+        // The text section, generating the code.
+        writeln!(f, "\t.section .text")?;
+        for func_data in self.mctx.funcs.iter() {
+            let func = func_data.self_ptr();
+
+            // Skip the external functions.
+            if func.is_external(self.mctx) {
+                writeln!(f, "\t.extern {}", func.label(self.mctx))?;
+                continue;
+            }
+
+            writeln!(f, "\t.global {}", func.label(self.mctx))?;
+            writeln!(f, "\t.align 1")?;
+            writeln!(f, "\t.type {}, @function", func.label(self.mctx))?;
+            writeln!(f, "{}:", func.label(self.mctx))?;
+
+            for block in func.iter(self.mctx) {
+                writeln!(f, "{}:", block.label(self.mctx))?;
+                for inst in block.iter(self.mctx) {
+                    writeln!(f, "\t{}", inst.display(self.mctx))?;
+                }
+            }
+
             writeln!(f)?;
         }
 

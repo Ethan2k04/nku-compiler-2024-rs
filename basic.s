@@ -1,47 +1,28 @@
 	.attribute arch, "rv64imafdc_zba_zbb"
-	.text
+	.section .data
+	.type __GLOBAL_VAR_a, @object
+	.bss
+	.global __GLOBAL_VAR_a
+	.align 2
+__GLOBAL_VAR_a:
+	.zero 4
+
+
+	.section .text
 	.extern getint
-	.global getint
-
 	.extern putint
-	.global putint
-
 	.extern getch
-	.global getch
-
 	.extern putch
-	.global putch
-
 	.extern getfloat
-	.global getfloat
-
 	.extern putfloat
-	.global putfloat
-
 	.extern getarray
-	.global getarray
-
 	.extern putarray
-	.global putarray
-
 	.extern getfarray
-	.global getfarray
-
 	.extern putfarray
-	.global putfarray
-
 	.extern starttime
-	.global starttime
-
 	.extern stoptime
-	.global stoptime
-
 	.extern memset
-	.global memset
-
 	.extern memcpy
-	.global memcpy
-
 	.global main
 	.align 1
 	.type main, @function
@@ -58,12 +39,4 @@ main:
 	lw t4, -12(sp)
 	addi a0, t4, 0
 	jr ra
-
-	.type __GLOBAL_VAR_a, @object
-	.bss
-	.global __GLOBAL_VAR_a
-	.align 2
-__GLOBAL_VAR_a:
-	.zero 4
-
 
