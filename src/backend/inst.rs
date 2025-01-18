@@ -2,6 +2,7 @@ use std::fmt;
 
 use super::block::MBlock;
 use super::context::MContext;
+use super::func::MLabel;
 use super::imm::Imm12;
 use super::operand::MemLoc;
 use super::regs::{Reg, RegKind};
@@ -49,6 +50,15 @@ pub enum MInstKind {
     J { target: MBlock },
     // TODO: add more instructions as you need.
     Jr { rd: Reg },
+    La { rd: Reg, loc: String },
+    Call { target: MLabel },
+    Branch {
+        op: BranchOp,
+        rs1: Reg,
+        rs2: Reg,
+        target: MBlock,
+    },
+    Ret,
 }
 
 #[derive(Copy, Clone)]
@@ -64,6 +74,18 @@ pub enum LoadOp {
     Fld,
 }
 
+#[derive(Copy, Clone)]
+pub enum BranchOp {
+    Beq,
+    Bne,
+    Blt,
+    Bge,
+    Bgt,
+    Ble,
+    Bltu,
+    Bgeu,
+}
+
 impl fmt::Display for LoadOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -76,6 +98,21 @@ impl fmt::Display for LoadOp {
             LoadOp::Lwu => write!(f, "lwu"),
             LoadOp::Flw => write!(f, "flw"),
             LoadOp::Fld => write!(f, "fld"),
+        }
+    }
+}
+
+impl fmt::Display for BranchOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BranchOp::Beq => write!(f, "beq"),
+            BranchOp::Bne => write!(f, "bne"),
+            BranchOp::Blt => write!(f, "blt"),
+            BranchOp::Bge => write!(f, "bge"),
+            BranchOp::Bgt => write!(f, "bgt"),
+            BranchOp::Ble => write!(f, "ble"),
+            BranchOp::Bltu => write!(f, "bltu"),
+            BranchOp::Bgeu => write!(f, "bgeu"),
         }
     }
 }
@@ -375,11 +412,59 @@ impl MInst {
         };
         mctx.alloc(data)
     }
+
+    /// Create a new `load address` instruction.
+    pub fn la(mctx: &mut MContext, loc: &String) -> (Self, Reg) {
+        let rd = mctx.new_vreg(RegKind::General).into();
+        let kind = MInstKind::La {
+            rd,
+            loc: loc.clone(),
+        };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        (mctx.alloc(data), rd)
+    }
+
+    pub fn new(mctx: &mut MContext, kind: MInstKind) -> Self {
+        mctx.alloc_with(|inst| MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        })
+    }
+
+    pub fn call(mctx: &mut MContext, target: MLabel) -> Self {
+        let kind = MInstKind::Call { target };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
+
+    /// Create a new `return` instruction.
+    pub fn ret(mctx: &mut MContext) -> Self {
+        let kind = MInstKind::Ret;
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
 }
 
 impl fmt::Display for DisplayMInst<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.inst.deref(self.mctx).kind {
+        match &self.inst.deref(self.mctx).kind {
             MInstKind::Li { rd, imm } => write!(f, "li {}, {}", rd, imm),
             MInstKind::Load { op, rd, loc } => {
                 let slot = match loc {
@@ -414,6 +499,22 @@ impl fmt::Display for DisplayMInst<'_> {
             MInstKind::J { target } => write!(f, "j {}", target.label(self.mctx)),
             // TODO: implement display for more machine instructions
             MInstKind::Jr { rd } => write!(f, "jr {}", rd),
+            MInstKind::La { rd, loc } => write!(f, "la {}, {}", rd, loc),
+            MInstKind::Branch {
+                op,
+                rs1,
+                rs2,
+                target,
+            } => write!(
+                f,
+                "{} {}, {}, {}",
+                op,
+                rs1,
+                rs2,
+                &target.label(self.mctx).to_string()
+            ),
+            MInstKind::Call { target } => write!(f, "call {}", target),
+            MInstKind::Ret => write!(f, "ret"),
         }
     }
 }

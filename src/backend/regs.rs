@@ -208,3 +208,16 @@ pub const fn t6() -> PReg { PReg::new(31, RegKind::General) }
 
 
 // TODO: You may need to add more registers here.
+pub const fn get_arg(index: usize) -> PReg {
+    match index {
+        0 => a0(),
+        1 => a1(),
+        2 => a2(),
+        3 => a3(),
+        4 => a4(),
+        5 => a5(),
+        6 => a6(),
+        7 => a7(),
+        _ => panic!("Invalid argument register index"),
+    }
+}

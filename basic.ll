@@ -1,4 +1,5 @@
-@__GLOBAL_VAR_a = global i32 zeroinitializer
+@__GLOBAL_VAR_a = global i32 3
+@__GLOBAL_VAR_b = global i32 5
 declare i32 @getint()
 declare void @putint(i32 %v0)
 declare i32 @getch()
@@ -13,29 +14,15 @@ declare void @starttime(i32 %v9)
 declare void @stoptime(i32 %v10)
 declare void @memset(ptr %v11, i32 %v12, i32 %v13)
 declare void @memcpy(ptr %v14, ptr %v15, i32 %v16)
-define i32 @foo(i32 %v17) {
+define i32 @main() {
 bb_0:
-	%v19 = alloca i32
 	%v18 = alloca i32
-	store i32 %v17, ptr %v18
-	store i32 0, ptr %v19
+	%v17 = alloca i32
+	%v20 = load i32, ptr @__GLOBAL_VAR_a
+	store i32 %v20, ptr %v18
+	store i32 0, ptr %v17
 	br label bb_1
 bb_1:
-	%v21 = load i32, ptr %v19
-	ret i32 %v21
-}
-define i32 @main() {
-bb_2:
-	%v25 = alloca i32
-	%v23 = alloca i32
-	%v22 = alloca i32
-	store i32 undef, ptr %v23
-	store i32 0, ptr %v25
-	store i32 1, ptr %v25
-	%v28 = load i32, ptr %v25
-	store i32 %v28, ptr %v22
-	br label bb_3
-bb_3:
-	%v29 = load i32, ptr %v22
-	ret i32 %v29
+	%v22 = load i32, ptr %v17
+	ret i32 %v22
 }
