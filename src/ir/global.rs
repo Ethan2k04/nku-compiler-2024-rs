@@ -5,9 +5,9 @@ use super::{ConstantValue, Context, Ty};
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr};
 
 pub struct GlobalData {
-    pub(super) self_ptr: Global,
-    name: String,
-    value: ConstantValue,
+    pub self_ptr: Global,
+    pub name: String,
+    pub value: ConstantValue,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

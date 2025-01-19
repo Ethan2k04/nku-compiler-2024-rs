@@ -5,6 +5,8 @@ use std::fmt;
 pub enum RegKind {
     /// The general purpose register.
     General,
+    /// The floating point register.
+    Float,
 }
 
 /// The register.
@@ -113,6 +115,41 @@ impl fmt::Display for PReg {
                 31 => "t6",
                 _ => "<invalid>",
             },
+            RegKind::Float => match self.num() {
+                0 => "ft0",
+                1 => "ft1",
+                2 => "ft2",
+                3 => "ft3",
+                4 => "ft4",
+                5 => "ft5",
+                6 => "ft6",
+                7 => "ft7",
+                8 => "fs0",
+                9 => "fs1",
+                10 => "fa0",
+                11 => "fa1",
+                12 => "fa2",
+                13 => "fa3",
+                14 => "fa4",
+                15 => "fa5",
+                16 => "fa6",
+                17 => "fa7",
+                18 => "fs2",
+                19 => "fs3",
+                20 => "fs4",
+                21 => "fs5",
+                22 => "fs6",
+                23 => "fs7",
+                24 => "fs8",
+                25 => "fs9",
+                26 => "fs10",
+                27 => "fs11",
+                28 => "ft8",
+                29 => "ft9",
+                30 => "ft10",
+                31 => "ft11",
+                _ => "<invalid>",
+            }
         };
         write!(f, "{}", str)
     }
@@ -125,6 +162,7 @@ impl fmt::Display for VReg {
             "{}{}",
             match self.1 {
                 RegKind::General => "$r",
+                RegKind::Float => "$f",
             },
             self.0
         )
@@ -205,6 +243,70 @@ pub const fn t4() -> PReg { PReg::new(29, RegKind::General) }
 pub const fn t5() -> PReg { PReg::new(30, RegKind::General) }
 
 pub const fn t6() -> PReg { PReg::new(31, RegKind::General) }
+
+pub const fn ft0() -> PReg { PReg::new(0, RegKind::Float) }
+
+pub const fn ft1() -> PReg { PReg::new(1, RegKind::Float) }
+
+pub const fn ft2() -> PReg { PReg::new(2, RegKind::Float) }
+
+pub const fn ft3() -> PReg { PReg::new(3, RegKind::Float) }
+
+pub const fn ft4() -> PReg { PReg::new(4, RegKind::Float) }
+
+pub const fn ft5() -> PReg { PReg::new(5, RegKind::Float) }
+
+pub const fn ft6() -> PReg { PReg::new(6, RegKind::Float) }
+
+pub const fn ft7() -> PReg { PReg::new(7, RegKind::Float) }
+
+pub const fn fs0() -> PReg { PReg::new(8, RegKind::Float) }
+
+pub const fn fs1() -> PReg { PReg::new(9, RegKind::Float) }
+
+pub const fn fa0() -> PReg { PReg::new(10, RegKind::Float) }
+
+pub const fn fa1() -> PReg { PReg::new(11, RegKind::Float) }
+
+pub const fn fa2() -> PReg { PReg::new(12, RegKind::Float) }
+
+pub const fn fa3() -> PReg { PReg::new(13, RegKind::Float) }
+
+pub const fn fa4() -> PReg { PReg::new(14, RegKind::Float) }
+
+pub const fn fa5() -> PReg { PReg::new(15, RegKind::Float) }
+
+pub const fn fa6() -> PReg { PReg::new(16, RegKind::Float) }
+
+pub const fn fa7() -> PReg { PReg::new(17, RegKind::Float) }
+
+pub const fn fs2() -> PReg { PReg::new(18, RegKind::Float) }
+
+pub const fn fs3() -> PReg { PReg::new(19, RegKind::Float) }
+
+pub const fn fs4() -> PReg { PReg::new(20, RegKind::Float) }
+
+pub const fn fs5() -> PReg { PReg::new(21, RegKind::Float) }
+
+pub const fn fs6() -> PReg { PReg::new(22, RegKind::Float) }
+
+pub const fn fs7() -> PReg { PReg::new(23, RegKind::Float) }
+
+pub const fn fs8() -> PReg { PReg::new(24, RegKind::Float) }
+
+pub const fn fs9() -> PReg { PReg::new(25, RegKind::Float) }
+
+pub const fn fs10() -> PReg { PReg::new(26, RegKind::Float) }
+
+pub const fn fs11() -> PReg { PReg::new(27, RegKind::Float) }
+
+pub const fn ft8() -> PReg { PReg::new(28, RegKind::Float) }
+
+pub const fn ft9() -> PReg { PReg::new(29, RegKind::Float) }
+
+pub const fn ft10() -> PReg { PReg::new(30, RegKind::Float) }
+
+pub const fn ft11() -> PReg { PReg::new(31, RegKind::Float) }
 
 
 // TODO: You may need to add more registers here.

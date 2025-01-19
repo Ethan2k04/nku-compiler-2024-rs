@@ -26,7 +26,7 @@ pub struct Context {
     /// Storage for values.
     pub(super) values: GenericArena<ValueData>,
     /// Storage for global variables.
-    pub(super) globals: GenericArena<GlobalData>,
+    pub globals: GenericArena<GlobalData>,
 
     /// Target information.
     pub(super) target: TargetInfo,

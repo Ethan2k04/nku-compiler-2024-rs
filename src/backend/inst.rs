@@ -1,16 +1,18 @@
 use std::fmt;
 
 use super::block::MBlock;
+use super::func::MFunc;
+use super::func::MLabel;
 use super::context::MContext;
 use super::imm::Imm12;
 use super::operand::MemLoc;
-use super::regs::{Reg, RegKind};
+use super::regs::{self, Reg, RegKind};
 use crate::infra::linked_list::LinkedListNode;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr};
 
 /// The data of the machine instruction.
 pub struct MInstData {
-    kind: MInstKind,
+    pub kind: MInstKind,
     next: Option<MInst>,
     prev: Option<MInst>,
     parent: Option<MBlock>,
@@ -39,6 +41,13 @@ pub enum MInstKind {
         rs1: Reg,
         rs2: Reg,
     },
+    /// Float ALU instructions with three registers (rd, and two rs-s).
+    FpAluRRR {
+        op: FpAluOpRRR,
+        rd: Reg,
+        rs1: Reg, 
+        rs2: Reg,
+    },
     /// Load instructions.
     Load { op: LoadOp, rd: Reg, loc: MemLoc },
     /// Store instructions.
@@ -47,7 +56,45 @@ pub enum MInstKind {
     Li { rd: Reg, imm: u64 },
     /// Jump instructions.
     J { target: MBlock },
+    /// Branch instructions
+    Br {
+        op: BrOp,
+        rs1: Reg,
+        rs2: Reg,
+        target: MBlock,
+    },
+    /// Call instructions.
+    Call {
+        target: MFunc,
+    },
+    /// Return instructions.
+    Ret,
+    /// Load address pseudo instruction.
+    La { rd: Reg, symbol: MLabel },
     // TODO: add more instructions as you need.
+}
+
+#[derive(Copy, Clone)]
+pub enum BrOp {
+    Beq,  // Branch if equal
+    Bne,  // Branch if not equal
+    Blt,  // Branch if less than (signed)
+    Bge,  // Branch if greater than or equal (signed) 
+    Bltu, // Branch if less than (unsigned)
+    Bgeu, // Branch if greater than or equal (unsigned)
+}
+
+impl fmt::Display for BrOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BrOp::Beq => write!(f, "beq"),
+            BrOp::Bne => write!(f, "bne"),
+            BrOp::Blt => write!(f, "blt"),
+            BrOp::Bge => write!(f, "bge"),
+            BrOp::Bltu => write!(f, "bltu"),
+            BrOp::Bgeu => write!(f, "bgeu"),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -210,11 +257,45 @@ impl fmt::Display for AluOpRRR {
 }
 
 // TODO: add more instruction kinds as you need.
+pub enum FpAluOpRRR {
+    Fadd,  // f[w]add.s/d
+    Fsub,  // f[w]sub.s/d 
+    Fmul,  // f[w]mul.s/d
+    Fdiv,  // f[w]div.s/d
+    Fsgnj, // fsgnj.s/d
+    Fsgnjn,// fsgnjn.s/d 
+    Fsgnjx,// fsgnjx.s/d
+    Fmin,  // fmin.s/d
+    Fmax,  // fmax.s/d
+    Feq,   // feq.s/d
+    Flt,   // flt.s/d 
+    Fle,   // fle.s/d
+}
+
+impl fmt::Display for FpAluOpRRR {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FpAluOpRRR::Fadd => write!(f, "fadd.s"),
+            FpAluOpRRR::Fsub => write!(f, "fsub.s"),
+            FpAluOpRRR::Fmul => write!(f, "fmul.s"),
+            FpAluOpRRR::Fdiv => write!(f, "fdiv.s"),
+            FpAluOpRRR::Fsgnj => write!(f, "fsgnj.s"),
+            FpAluOpRRR::Fsgnjn => write!(f, "fsgnjn.s"),
+            FpAluOpRRR::Fsgnjx => write!(f, "fsgnjx.s"),
+            FpAluOpRRR::Fmin => write!(f, "fmin.s"),
+            FpAluOpRRR::Fmax => write!(f, "fmax.s"),
+            FpAluOpRRR::Feq => write!(f, "feq.s"),
+            FpAluOpRRR::Flt => write!(f, "flt.s"),
+            FpAluOpRRR::Fle => write!(f, "fle.s"),
+        }
+    }
+}
 
 pub struct DisplayMInst<'a> {
     mctx: &'a MContext,
     inst: MInst,
 }
+
 
 impl MInst {
     pub fn kind(self, mctx: &MContext) -> &MInstKind { &self.deref(mctx).kind }
@@ -244,6 +325,17 @@ impl MInst {
         (inst, rd)
     }
 
+    pub fn build_li(mctx: &mut MContext, rd: Reg, imm: u64) -> Self {
+        let kind = MInstKind::Li { rd, imm };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
+
     /// Create a new `load` instruction.
     ///
     /// op: LoadOp
@@ -261,6 +353,17 @@ impl MInst {
         };
         let inst = mctx.alloc(data);
         (inst, rd)
+    }
+
+    pub fn build_load(mctx: &mut MContext, op: LoadOp, rd: Reg, loc: MemLoc) -> Self {
+        let kind = MInstKind::Load { op, rd, loc };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
     }
 
     /// Create a new `store` instruction.
@@ -281,6 +384,26 @@ impl MInst {
         mctx.alloc(data)
     }
 
+    pub fn call(mctx: &mut MContext, target: MFunc) -> Self {
+        let kind = MInstKind::Call { target };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
+
+    pub fn ret(mctx: &mut MContext) -> Self {
+        mctx.alloc(MInstData {
+            kind: MInstKind::Ret,
+            next: None,
+            prev: None,
+            parent: None,
+        })
+    }
+
     /// Create a new `alu_rrr` instruction.
     ///
     /// op: AluOpRRI
@@ -299,6 +422,17 @@ impl MInst {
         };
         let inst = mctx.alloc(data);
         (inst, rd)
+    }
+
+    pub fn build_alu_rrr(mctx: &mut MContext, op: AluOpRRR, rd: Reg, rs1: Reg, rs2: Reg) -> Self {
+        let kind = MInstKind::AluRRR { op, rd, rs1, rs2 };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
     }
 
     /// Create a new `alu_rri` instruction.
@@ -358,6 +492,68 @@ impl MInst {
         mctx.alloc(data)
     }
 
+    pub fn br(mctx: &mut MContext, op: BrOp, rs1: Reg, rs2: Reg, target: MBlock) -> Self {
+        let kind = MInstKind::Br { op, rs1, rs2, target };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
+
+    pub fn build_la(mctx: &mut MContext, rd: Reg, symbol: MLabel) -> Self {
+        let kind = MInstKind::La { rd, symbol };
+        let data = MInstData {
+            kind,
+            next: None,
+            prev: None,
+            parent: None,
+        };
+        mctx.alloc(data)
+    }
+
+    pub fn adjust_offset<F>(self, mctx: &mut MContext, f: F) 
+    where
+        F: FnOnce(MemLoc) -> Option<MemLoc>,
+    {
+        let (old_loc, new_loc) = match self.kind(mctx) {
+            MInstKind::Load { loc, .. } => (*loc, f(*loc)),
+            MInstKind::Store { op, rs, loc } => (*loc, f(*loc)),
+            _ => return,
+        };
+
+        if new_loc.is_none() {
+            return;
+        }
+
+        let new_loc = match (old_loc, new_loc.unwrap()) {
+            (MemLoc::Slot { .. } | MemLoc::Incoming { .. }, MemLoc::RegOffset { base, offset }) => {
+                if Imm12::try_from_i64(offset).is_none() {
+                    let t0 = regs::t0();
+                    let li = Self::build_li(mctx, t0.into(), offset as u64);
+                    self.insert_before(mctx, li).unwrap();
+                    let add = Self::build_alu_rrr(mctx, AluOpRRR::Add, t0.into(), base, t0.into());
+                    self.insert_before(mctx, add).unwrap();
+                    MemLoc::RegOffset {
+                        base: t0.into(),
+                        offset: 0,
+                    }
+                } else {
+                    MemLoc::RegOffset { base, offset }
+                }
+            }
+            _ => unreachable!()
+        };  
+
+        match &mut self.deref_mut(mctx).kind {
+            MInstKind::Load { loc, .. } => *loc = new_loc,
+            MInstKind::Store { loc, .. } => *loc = new_loc,
+            _ => unreachable!(),
+        }
+    }
+
     // TODO: add more instruction creation methods as you need.
 }
 
@@ -395,7 +591,17 @@ impl fmt::Display for DisplayMInst<'_> {
             }
             MInstKind::AluRRR { op, rd, rs1, rs2 } => write!(f, "{} {}, {}, {}", op, rd, rs1, rs2),
             MInstKind::AluRRI { op, rd, rs, imm } => write!(f, "{} {}, {}, {}", op, rd, rs, imm),
+            MInstKind::FpAluRRR {..} => todo!(),
             MInstKind::J { target } => write!(f, "j {}", target.label(self.mctx)),
+            MInstKind::Br { op, rs1, rs2, target } => {
+                write!(f, "{} {}, {}, {}", op, rs1, rs2, target.label(self.mctx))
+            }
+            MInstKind::Call { target } => {
+                write!(f, "call {}", target.label(self.mctx))
+            }
+            MInstKind::La { rd, ref symbol } => write!(f, "la {}, {}", rd, symbol),
+            MInstKind::Ret => write!(f, "ret"),
+            // MInstKind::La { rd, symbol } => write!(f, "la {}, {}", rd, symbol),
             // TODO: implement display for more machine instructions
         }
     }

@@ -24,24 +24,24 @@ class Colors:
 
 @dataclass
 class Config:
-    timeout: int = 600
+    timeout: int = 10
     opt_level: int = 0
     output_dir: str = "./output"
     testcase_dir: str = "./tests/testcase"
     runtime_lib_dir: str = "./tests/sysy-runtime-lib"
-    executable_path: str = "./target/release/nkucc"
+    executable_path: str = "./target/release/compiler-in-rust"
     no_compile: bool = False
     no_test: bool = False
     test_llvm: bool = False
 
 def parse_args() -> Config:
     parser = argparse.ArgumentParser(description="Test automation script for compiler.")
-    parser.add_argument("--timeout", type=int, default=600, help="Timeout for each test case in seconds.")
+    parser.add_argument("--timeout", type=int, default=15, help="Timeout for each test case in seconds.")
     parser.add_argument("--opt-level", type=int, default=0, help="Optimization level for the compiler.")
     parser.add_argument("--output-dir", default="./output", help="Directory to store outputs.")
     parser.add_argument("--testcase-dir", default="./tests/testcase", help="Directory containing test cases.")
     parser.add_argument("--runtime-lib-dir", default="./tests/sysy-runtime-lib", help="Directory for runtime libraries.")
-    parser.add_argument("--executable-path", default="./target/release/nkucc", help="Path to the compiler executable.")
+    parser.add_argument("--executable-path", default="./target/release/compiler-in-rust", help="Path to the compiler executable.")
     parser.add_argument("--no-compile", action="store_true", help="Skip the compilation step.")
     parser.add_argument("--no-test", action="store_true", help="Skip the testing step.")
     parser.add_argument("--test-llvm", action="store_true", help="Test llvm-ir generation.")
@@ -212,7 +212,7 @@ def test(config: Config) -> None:
 
                 # Use LLVM to compile to assembly
                 compile_command = (
-                    f"clang -mllvm -opaque-pointers -fno-addrsig -S --target=riscv64-linux-gnu-gcc -mabi=lp64d {ir_path} -o {asm_path}"
+                    f"clang-15 -mllvm -opaque-pointers -fno-addrsig -S --target=riscv64-linux-gnu-gcc -mabi=lp64d {ir_path} -o {asm_path}"
                 )
 
                 log_file.write(f"Executing: {compile_command}\n")

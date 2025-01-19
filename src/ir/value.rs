@@ -9,7 +9,7 @@ use super::inst::Inst;
 use super::ty::Ty;
 use crate::infra::storage::{Arena, ArenaPtr, GenericPtr, Idx};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstantValue {
     /// The undefined value.
     Undef { ty: Ty },

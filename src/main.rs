@@ -75,27 +75,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 运行 mem2reg 优化
     let mut mem2reg = SimpleMem2Reg;
     let changed = mem2reg.run(&mut ctx);
-    if changed {
-        println!("\nMem2Reg made changes to the IR");
-    } else {
-        println!("\nMem2Reg made no changes"); 
-    }
+    // if changed {
+    //     println!("\nMem2Reg made changes to the IR");
+    // } else {
+    //     println!("\nMem2Reg made no changes"); 
+    // }
 
     // 运行死代码删除
     let mut dce = dce::UnreachableCodeElimination;
     let changed = dce.run(&mut ctx);
-    match changed {
-        Ok(changed) => {
-            if changed {
-                println!("\nDCE made changes to the IR");
-            } else {
-                println!("\nDCE made no changes");
-            }
-        }
-        Err(e) => {
-            println!("\nDCE failed with error: {:?}", e);
-        }
-    }
+    // match changed {
+    //     Ok(changed) => {
+    //         if changed {
+    //             println!("\nDCE made changes to the IR");
+    //         } else {
+    //             println!("\nDCE made no changes");
+    //         }
+    //     }
+    //     Err(e) => {
+    //         println!("\nDCE failed with error: {:?}", e);
+    //     }
+    // }
 
     if let Some(ir_file) = emit_llvm_ir {
         std::fs::write(ir_file, ctx.to_string()).unwrap();
@@ -109,18 +109,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Do the codegen and emit virtual register assembly.
     codegen_ctx.codegen();
-    println!("{}", codegen_ctx.mctx().display());
+    println!("codegen done:");
+    // println!("{}", codegen_ctx.mctx().display());
 
     // Do the register allocation.
     codegen_ctx.regalloc();
-    println!("{}", codegen_ctx.mctx().display());
+    println!("regalloc done:");
+    // println!("{}", codegen_ctx.mctx().display());
 
     // Additional work after register allocation.
     codegen_ctx.after_regalloc();
 
     // Emit the final assembly.
     let mctx = codegen_ctx.finish();
-    println!("{}", mctx.display());
+    println!("final assembly:");
+    // println!("{}", mctx.display());
+
+    if let Some(output) = output {
+        std::fs::write(output, mctx.display().to_string())?;
+    }
 
     Ok(())
 }

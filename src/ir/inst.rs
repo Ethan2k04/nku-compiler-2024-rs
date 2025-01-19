@@ -322,7 +322,7 @@ pub struct InstData {
     successors: OperandList<Block>,
     /// The phi node information, with `predecessor block --> operand` idx
     /// mapping.
-    phi_node: HashMap<Block, usize>,
+    pub phi_node: HashMap<Block, usize>,
     /// The result of the instruction.
     result: Option<Value>,
     // Linked list pointers.
@@ -343,7 +343,7 @@ impl Inst {
     /// - `ctx`: The context to create the instruction.
     /// - `kind`: The kind of the instruction.
     /// - `ty`: The type of the instruction result.
-    fn new(ctx: &mut Context, kind: InstKind, ty: Ty) -> Self {
+    pub fn new(ctx: &mut Context, kind: InstKind, ty: Ty) -> Self {
         let inst = ctx.alloc_with(|self_ptr| InstData {
             _self_ptr: self_ptr,
             kind,

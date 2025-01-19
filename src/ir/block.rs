@@ -55,6 +55,10 @@ impl Block {
         format!("%bb_{}", self.0.index())
     }
 
+    pub fn rv_name(self, ctx: &Context) -> String {
+        format!("bb_{}", self.0.index())
+    }
+
     pub fn display(self, ctx: &Context) -> DisplayBlock { DisplayBlock { ctx, block: self } }
 }
 

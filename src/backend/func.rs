@@ -99,6 +99,20 @@ impl MFunc {
         })
     }
 
+    /// Create a new machine external function declaration.
+    pub fn new_declare(mctx: &mut MContext, label: impl Into<MLabel>) -> Self {
+        mctx.alloc_with(|self_ptr| MFuncData {
+            self_ptr,
+            label: label.into(),
+            storage_stack_size: 0,
+            outgoing_stack_size: 0,
+            saved_regs: BTreeSet::default(),
+            is_external: true,
+            head: None,
+            tail: None,
+        })
+    }
+
     /// Check if the function is an external function (library function).
     pub fn is_external(self, mctx: &MContext) -> bool { self.deref(mctx).is_external }
 

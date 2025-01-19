@@ -12,6 +12,14 @@ use crate::infra::storage::GenericArena;
 pub enum RawData {
     /// Bytes of the data, declared in the data section.
     Bytes(Vec<u8>),
+    /// Words (4 bytes) of the data
+    Words(Vec<u32>),
+    /// Double words (8 bytes) of the data
+    DWords(Vec<u64>),
+    /// Single precision floating point numbers (4 bytes)
+    Floats(Vec<f32>),
+    /// Double precision floating point numbers (8 bytes) 
+    Doubles(Vec<f64>),
     /// Zero-initialized bytes of the data, declared in the bss section.
     ///
     /// The field is the size of the zero-initialized data.
@@ -113,6 +121,46 @@ impl fmt::Display for DisplayMContext<'_> {
                         writeln!(f, "\t.byte {}", byte)?;
                     }
                     writeln!(f)?;
+                }
+                RawData::Words(words) => {
+                    writeln!(f, "\t.data")?;
+                    writeln!(f, "\t.global {}", label)?;
+                    writeln!(f, "\t.align 2")?;
+                    writeln!(f, "{}:", label)?;
+                    for word in words.iter() {
+                        writeln!(f, "\t.word 0x{:08x}", word)?;  // 输出为16进制
+                    }
+                }
+                RawData::DWords(dwords) => {
+                    writeln!(f, "\t.data")?;
+                    writeln!(f, "\t.global {}", label)?;
+                    writeln!(f, "\t.align 3")?;  // 8字节对齐
+                    writeln!(f, "{}:", label)?;
+                    for dword in dwords.iter() {
+                        writeln!(f, "\t.dword {}", dword)?;
+                    }
+                }
+                RawData::Floats(floats) => {
+                    writeln!(f, "\t.data")?;
+                    writeln!(f, "\t.global {}", label)?;
+                    writeln!(f, "\t.align 2")?;
+                    writeln!(f, "{}:", label)?;
+                    for float in floats.iter() {
+                        // 将浮点数位模式作为整数输出
+                        let bits = float.to_bits();
+                        writeln!(f, "\t.word {}", bits)?;
+                    }
+                }
+                RawData::Doubles(doubles) => {
+                    writeln!(f, "\t.data")?;
+                    writeln!(f, "\t.global {}", label)?;
+                    writeln!(f, "\t.align 3")?;  // 8字节对齐
+                    writeln!(f, "{}:", label)?;
+                    for double in doubles.iter() {
+                        // 将双精度浮点数位模式作为整数输出
+                        let bits = double.to_bits();
+                        writeln!(f, "\t.dword {}", bits)?;
+                    }
                 }
                 RawData::Bss(size) => {
                     writeln!(f, "\t.bss")?;
