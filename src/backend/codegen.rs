@@ -1421,23 +1421,16 @@ impl<'s> CodegenContext<'s> {
                         }
                     }
                     (MOperandKind::Imm(_, imm), MOperandKind::Reg(reg)) => {
-                        // Convert subtraction of immediate to addition of negative immediate
-                        if let Some(imm12) = Imm12::try_from_i64(-*imm) {
-                            let (add, rd) = MInst::alu_rri(&mut self.mctx, subi_op, *reg, imm12);
-                            curr_block.push_back(&mut self.mctx, add).unwrap();
-                            make_result(rd)
-                        } else {
-                            let (li, r) = MInst::li(&mut self.mctx, *imm as u64);
-                            curr_block.push_back(&mut self.mctx, li).unwrap();
-                            let alu_op = match bitwidth {
-                                32 => AluOpRRR::Subw,
-                                64 => AluOpRRR::Sub,
-                                _ => unreachable!("invalid int width"),
-                            };
-                            let (sub, rd) = MInst::alu_rrr(&mut self.mctx, alu_op, *reg, r);
-                            curr_block.push_back(&mut self.mctx, sub).unwrap();
-                            make_result(rd)
-                        }
+                        let (li, r) = MInst::li(&mut self.mctx, *imm as u64);
+                        curr_block.push_back(&mut self.mctx, li).unwrap();
+                        let alu_op = match bitwidth {
+                            32 => AluOpRRR::Subw,
+                            64 => AluOpRRR::Sub,
+                            _ => unreachable!("invalid int width"),
+                        };
+                        let (sub, rd) = MInst::alu_rrr(&mut self.mctx, alu_op, r, *reg);
+                        curr_block.push_back(&mut self.mctx, sub).unwrap();
+                        make_result(rd)
                     }
                     (MOperandKind::Imm(_, imm1), MOperandKind::Imm(_, imm2)) => {
                         let (li, r) = MInst::li(&mut self.mctx, *imm1 as u64);

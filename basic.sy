@@ -1,8 +1,25 @@
-int a = 5;
+int n;
 
-int main() {
-  int c;
-  int b = 0;
-  b = 1;
-  return a + b;
+int main()
+{
+    //newline=10;
+    int i;
+    int j;
+    //m = 1478;
+    //int t;
+    i=getint(); //t6
+    j=getint(); //t5
+    int temp;
+    temp=i;
+    i=j;
+    j=temp;
+
+    putint(i);
+    temp = 10;
+    putch(temp);
+    putint(j);
+    temp = 10;
+    putch(temp);
+    
+    return 0;
 }
